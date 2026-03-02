@@ -711,13 +711,19 @@ export default function App() {
     try { return localStorage.getItem("rp_theme") || "dark"; } catch(e) { return "dark"; }
   });
   const [page, setPage] = useState("dashboard");
-  const [restaurants, setRestaurants] = useState(DEMO_RESTAURANTS);
+  const [restaurants, setRestaurants] = useState(() => {
+    try { const s = localStorage.getItem("rp_restaurants"); if (s) return JSON.parse(s); } catch(e) {}
+    return DEMO_RESTAURANTS;
+  });
   const [allUsers, setAllUsers] = useState(() => {
     try { const s = localStorage.getItem("rp_users"); if (s) return JSON.parse(s); } catch(e) {}
     return DEMO_USERS;
   });
   useEffect(() => { try { localStorage.setItem("rp_users", JSON.stringify(allUsers)); } catch(e) {} }, [allUsers]);
+  useEffect(() => { try { localStorage.setItem("rp_restaurants", JSON.stringify(restaurants)); } catch(e) {} }, [restaurants]);
+  useEffect(() => { try { localStorage.setItem("rp_restodata", JSON.stringify(restoData)); } catch(e) {} }, [restoData]);
   const [restoData, setRestoData] = useState(() => {
+    try { const s = localStorage.getItem("rp_restodata"); if (s) return JSON.parse(s); } catch(e) {}
     const rd = {};
     DEMO_RESTAURANTS.forEach(r => { rd[r.id] = generateDemoData(r.objectives); });
     return rd;
