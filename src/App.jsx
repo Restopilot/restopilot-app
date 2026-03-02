@@ -499,8 +499,9 @@ const InputPage = ({ data, setData, addToast, isAdmin }) => {
   const addInvoice = () => { if (!newInvoice.fournisseur || !newInvoice.montant) return; setInvoices([...invoices, { id: selectedDate + "-" + Date.now(), fournisseur: newInvoice.fournisseur, montant: parseFloat(newInvoice.montant), categorie: newInvoice.categorie, date: selectedDate }]); setNewInvoice({ fournisseur: "", montant: "", categorie: CATEGORIES[0] }); };
   const removeInvoice = (id) => setInvoices(invoices.filter((i) => i.id !== id));
   const saveDay = () => {
-    if (!ca || !caHt || !objectif) { addToast("Veuillez remplir CA TTC, CA HT et objectif", "error"); return; }
-    const dayEntry = { date: selectedDate, ca: parseFloat(ca), ca_ht: parseFloat(caHt), objectif: parseFloat(objectif), invoices };
+    if (!ca || !caHt) { addToast("Veuillez remplir CA TTC et CA HT", "error"); return; }
+    if (isAdmin && !objectif) { addToast("Veuillez remplir l'objectif", "error"); return; }
+    const dayEntry = { date: selectedDate, ca: parseFloat(ca), ca_ht: parseFloat(caHt), objectif: parseFloat(objectif) || (data.find(d => d.date === selectedDate)?.objectif || 0), invoices };
     const idx = data.findIndex((d) => d.date === selectedDate);
     const newData = [...data];
     if (idx >= 0) newData[idx] = dayEntry; else { newData.push(dayEntry); newData.sort((a, b) => a.date.localeCompare(b.date)); }
