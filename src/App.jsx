@@ -447,10 +447,11 @@ const DashboardPage = ({ data }) => {
     const ecart = latest.ca - latest.objectif;
     const atteinte = latest.objectif > 0 ? (latest.ca / latest.objectif) * 100 : 0;
     const now = new Date();
-    const weekAgo = new Date(now); weekAgo.setDate(weekAgo.getDate() - 7);
-    const monthAgo = new Date(now); monthAgo.setDate(monthAgo.getDate() - 30);
-    const weekData = data.filter((d) => new Date(d.date + "T00:00:00") >= weekAgo);
-    const monthData = data.filter((d) => new Date(d.date + "T00:00:00") >= monthAgo);
+    const dow = (now.getDay() + 6) % 7;
+    const weekStart = new Date(now); weekStart.setDate(now.getDate() - dow); weekStart.setHours(0,0,0,0);
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const weekData = data.filter((d) => new Date(d.date + "T00:00:00") >= weekStart);
+    const monthData = data.filter((d) => { const dt = new Date(d.date + "T00:00:00"); return dt.getFullYear() === now.getFullYear() && dt.getMonth() === now.getMonth(); });
     const caW = weekData.reduce((s, d) => s + d.ca, 0);
     const caWHt = weekData.reduce((s, d) => s + (d.ca_ht || Math.round(d.ca / 1.1)), 0);
     const caM = monthData.reduce((s, d) => s + d.ca, 0);
