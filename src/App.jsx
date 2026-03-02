@@ -417,25 +417,22 @@ const RestoPicker = ({ restaurants, current, setCurrent, isAdmin }) => {
   );
 };
 
-const LoginPage = ({ onLogin }) => {
+const LoginPage = ({ onLogin, users }) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [remember, setRemember] = useState(true);
-  const handleSubmit = (e) => { e.preventDefault(); const user = DEMO_USERS.find((u) => u.email === email && u.password === password); if (user) { if (remember) { try { localStorage.setItem("rp_session", JSON.stringify(user)); localStorage.setItem("rp_session_expiry", String(Date.now() + 30 * 24 * 60 * 60 * 1000)); } catch(e) {} } onLogin(user); } else setError("Identifiants incorrects"); };
+  const handleSubmit = (e) => { e.preventDefault(); const user = users.find((u) => u.email === email && u.password === password); if (user) { if (remember) { try { localStorage.setItem("rp_session", JSON.stringify(user)); localStorage.setItem("rp_session_expiry", String(Date.now() + 30 * 24 * 60 * 60 * 1000)); } catch(e) {} } onLogin(user); } else setError("Identifiants incorrects"); };
   return (
     <div className="login-page"><div className="login-card"><div className="login-brand"><h1>RestoPilot</h1><p>Gestion & Performance</p></div>
     <form onSubmit={handleSubmit}>
-      <div className="form-group"><label className="form-label">Email</label><input className="form-input" type="email" value={email} onChange={(e) => { setEmail(e.target.value); setError(""); }} placeholder="admin@restaurant.fr" /></div>
+      <div className="form-group"><label className="form-label">Email</label><input className="form-input" type="email" value={email} onChange={(e) => { setEmail(e.target.value); setError(""); }} placeholder="Votre email" /></div>
       <div className="form-group"><label className="form-label">Mot de passe</label><input className="form-input" type="password" value={password} onChange={(e) => { setPassword(e.target.value); setError(""); }} placeholder="••••••••" /></div>
       <label className="remember-row"><input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} />Rester connecté</label>
       {error && <div style={{ color: "var(--red)", fontSize: 13, marginBottom: 16 }}>{error}</div>}
       <button className="btn btn-primary" style={{ width: "100%", justifyContent: "center", marginTop: 8, padding: "12px 20px" }} type="submit">Se connecter</button>
     </form>
-    <div style={{ marginTop: 28, padding: 16, background: "var(--bg-input)", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)" }}>
-      <div style={{ fontSize: 11, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: 8 }}>Comptes de démonstration</div>
-      <div style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.7 }}><strong style={{ color: "var(--accent)" }}>Admin:</strong> admin@restopilot.fr / admin123<br /><strong style={{ color: "var(--gold)" }}>Manager 1:</strong> marie@bistrot.fr / manager123<br /><strong style={{ color: "var(--blue)" }}>Manager 2:</strong> lucas@table.fr / manager123</div>
-    </div></div></div>
+    </div></div>
   );
 };
 
@@ -663,32 +660,35 @@ const ObjectivesPage = ({ restaurant, restaurants, currentRestoId, isAdmin, onUp
   );
 };
 
-const RestosPage = ({ restaurants, users, onAddResto, onAddUser, onDeleteUser, addToast }) => {
+const RestosPage = ({ restaurants, users, currentUser, onAddResto, onDeleteResto, onAddUser, onUpdateUser, onDeleteUser, onResetFebruary, addToast }) => {
   const [showAdd, setShowAdd] = useState(false);
   const [nr, setNr] = useState({ name: "", address: "", color: "#4ADE80" });
   const [showAddUser, setShowAddUser] = useState(false);
-  const [nu, setNu] = useState({ name: "", email: "", password: "", restaurantId: "" });
+  const [nu, setNu] = useState({ name: "", email: "", password: "", role: "manager", restaurantId: "" });
+  const [editUser, setEditUser] = useState(null);
+  const [editPw, setEditPw] = useState("");
   const colors = ["#4ADE80", "#60A5FA", "#FBBF24", "#F87171", "#A78BFA", "#F9A8D4", "#FB923C", "#E879F9"];
+  const confirmDelete = (email, name) => { if (email === currentUser?.email) { addToast("Impossible de supprimer votre propre compte", "error"); return; } if (window.confirm("Supprimer le compte de " + name + " (" + email + ") ?")) { onDeleteUser(email); addToast("Compte supprimé : " + name, "info"); } };
   const addR = () => { if (!nr.name) return; onAddResto(nr); addToast("Restaurant créé : " + nr.name, "success"); setNr({ name: "", address: "", color: "#4ADE80" }); setShowAdd(false); };
-  const addU = () => { if (!nu.name || !nu.email || !nu.password || !nu.restaurantId) return; onAddUser(nu); addToast("Manager ajouté : " + nu.name, "success"); setNu({ name: "", email: "", password: "", restaurantId: "" }); setShowAddUser(false); };
+  const addU = () => { if (!nu.name || !nu.email || !nu.password) { addToast("Remplissez tous les champs", "error"); return; } if (nu.role === "manager" && !nu.restaurantId) { addToast("Choisissez un restaurant pour le manager", "error"); return; } onAddUser(nu); addToast((nu.role === "admin" ? "Admin" : "Manager") + " ajouté : " + nu.name, "success"); setNu({ name: "", email: "", password: "", role: "manager", restaurantId: "" }); setShowAddUser(false); };
+  const savePw = () => { if (!editPw || editPw.length < 4) { addToast("Mot de passe trop court (min. 4)", "error"); return; } onUpdateUser(editUser.email, { password: editPw }); addToast("Mot de passe modifié pour " + editUser.name, "success"); setEditUser(null); setEditPw(""); };
   return (
     <div className="content-area"><div className="grid-2" style={{ alignItems: "start" }}>
       <div><div className="card"><div className="card-header"><div className="card-title">Restaurants ({restaurants.length})</div><button className="btn btn-sm btn-primary" onClick={() => setShowAdd(true)}><Icon name="plus" size={14} color="var(--bg-primary)" /> Nouveau</button></div>
         {restaurants.map(r => { const mgrs = users.filter(u => u.restaurantId === r.id); return (
-          <div key={r.id} className="resto-card"><div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10 }}><div style={{ width: 14, height: 14, borderRadius: 7, background: r.color, flexShrink: 0 }} /><div style={{ flex: 1 }}><div style={{ fontSize: 16, fontWeight: 600 }}>{r.name}</div><div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>{r.address || "—"}</div></div></div><div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>{mgrs.length > 0 ? mgrs.map(m => <span key={m.email} className="badge badge-green" style={{ fontSize: 11 }}>{m.name}</span>) : <span style={{ fontSize: 12, color: "var(--text-muted)" }}>Aucun manager</span>}</div></div>
+          <div key={r.id} className="resto-card"><div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10 }}><div style={{ width: 14, height: 14, borderRadius: 7, background: r.color, flexShrink: 0 }} /><div style={{ flex: 1 }}><div style={{ fontSize: 16, fontWeight: 600 }}>{r.name}</div><div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>{r.address || "—"}</div></div><button className="btn-icon" onClick={() => onDeleteResto(r.id)} style={{ padding: 4, border: "none" }} title="Supprimer"><Icon name="trash" size={14} color="var(--red)" /></button></div><div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>{mgrs.length > 0 ? mgrs.map(m => <span key={m.email} className="badge badge-green" style={{ fontSize: 11 }}>{m.name}</span>) : <span style={{ fontSize: 12, color: "var(--text-muted)" }}>Aucun manager</span>}</div></div>
         ); })}
       </div></div>
-      <div><div className="card"><div className="card-header"><div className="card-title">Managers ({users.filter(u => u.role === "manager").length})</div><button className="btn btn-sm btn-primary" onClick={() => setShowAddUser(true)}><Icon name="plus" size={14} color="var(--bg-primary)" /> Nouveau</button></div>
-        {users.filter(u => u.role === "manager").map(u => { const r = restaurants.find(x => x.id === u.restaurantId); return (
-          <div key={u.email} className="invoice-item"><div className="invoice-left"><div className="user-avatar" style={{ width: 38, height: 38 }}><Icon name="user" size={16} /></div><div><div style={{ fontSize: 14, fontWeight: 500 }}>{u.name}</div><div style={{ fontSize: 12, color: "var(--text-muted)" }}>{u.email}</div></div></div><div style={{ display: "flex", alignItems: "center", gap: 8 }}>{r && <span className="badge" style={{ background: r.color + "22", color: r.color, fontSize: 11 }}>{r.name}</span>}<button className="btn-icon" onClick={() => onDeleteUser(u.email)} style={{ padding: 4, border: "none" }}><Icon name="x" size={14} color="var(--red)" /></button></div></div>
+      <div><div className="card"><div className="card-header"><div className="card-title">Utilisateurs ({users.length})</div><button className="btn btn-sm btn-primary" onClick={() => setShowAddUser(true)}><Icon name="plus" size={14} color="var(--bg-primary)" /> Nouveau</button></div>
+        {users.map(u => { const r = restaurants.find(x => x.id === u.restaurantId); const isSelf = u.email === currentUser?.email; return (
+          <div key={u.email} className="invoice-item"><div className="invoice-left"><div className="user-avatar" style={{ width: 38, height: 38, background: u.role === "admin" ? "var(--gold-bg)" : "var(--accent-bg-strong)" }}><Icon name="user" size={16} color={u.role === "admin" ? "var(--gold)" : "var(--accent)"} /></div><div><div style={{ fontSize: 14, fontWeight: 500 }}>{u.name}{isSelf ? " (vous)" : ""}</div><div style={{ fontSize: 12, color: "var(--text-muted)" }}>{u.email}</div></div></div><div style={{ display: "flex", alignItems: "center", gap: 6 }}>{u.role === "admin" ? <span className="badge badge-gold">Admin</span> : r ? <span className="badge" style={{ background: r.color + "22", color: r.color, fontSize: 11 }}>{r.name}</span> : <span className="badge badge-red">Non assigné</span>}<button className="btn-icon" onClick={() => { setEditUser(u); setEditPw(""); }} style={{ padding: 4, border: "none" }} title="Modifier mdp"><Icon name="settings" size={14} /></button>{!isSelf && <button className="btn-icon" onClick={() => confirmDelete(u.email, u.name)} style={{ padding: 4, border: "none" }} title="Supprimer"><Icon name="trash" size={14} color="var(--red)" /></button>}</div></div>
         ); })}
-        {users.filter(u => u.role === "admin").map(u => (
-          <div key={u.email} className="invoice-item"><div className="invoice-left"><div className="user-avatar" style={{ width: 38, height: 38 }}><Icon name="user" size={16} /></div><div><div style={{ fontSize: 14, fontWeight: 500 }}>{u.name}</div><div style={{ fontSize: 12, color: "var(--text-muted)" }}>{u.email}</div></div></div><span className="badge badge-gold">Admin</span></div>
-        ))}
       </div></div>
     </div>
     {showAdd && <div className="modal-overlay" onClick={() => setShowAdd(false)}><div className="modal-content" onClick={e => e.stopPropagation()}><div style={{ fontSize: 20, fontWeight: 700, marginBottom: 20 }}>Nouveau restaurant</div><div className="form-group"><label className="form-label">Nom</label><input className="form-input" value={nr.name} onChange={e => setNr({ ...nr, name: e.target.value })} placeholder="Le Petit Bistrot" /></div><div className="form-group"><label className="form-label">Adresse</label><input className="form-input" value={nr.address} onChange={e => setNr({ ...nr, address: e.target.value })} placeholder="12 rue de la Paix" /></div><div className="form-group"><label className="form-label">Couleur</label><div style={{ display: "flex", gap: 8 }}>{colors.map(c => <div key={c} onClick={() => setNr({ ...nr, color: c })} style={{ width: 32, height: 32, borderRadius: 10, background: c, cursor: "pointer", border: nr.color === c ? "3px solid var(--text-primary)" : "3px solid transparent" }} />)}</div></div><div style={{ display: "flex", gap: 10, marginTop: 20 }}><button className="btn btn-secondary" onClick={() => setShowAdd(false)} style={{ flex: 1, justifyContent: "center" }}>Annuler</button><button className="btn btn-primary" onClick={addR} style={{ flex: 1, justifyContent: "center" }}>Créer</button></div></div></div>}
-    {showAddUser && <div className="modal-overlay" onClick={() => setShowAddUser(false)}><div className="modal-content" onClick={e => e.stopPropagation()}><div style={{ fontSize: 20, fontWeight: 700, marginBottom: 20 }}>Nouveau manager</div><div className="form-group"><label className="form-label">Nom</label><input className="form-input" value={nu.name} onChange={e => setNu({ ...nu, name: e.target.value })} placeholder="Jean Dupont" /></div><div className="form-group"><label className="form-label">Email</label><input className="form-input" type="email" value={nu.email} onChange={e => setNu({ ...nu, email: e.target.value })} placeholder="jean@restaurant.fr" /></div><div className="form-group"><label className="form-label">Mot de passe</label><input className="form-input" value={nu.password} onChange={e => setNu({ ...nu, password: e.target.value })} placeholder="••••••••" /></div><div className="form-group"><label className="form-label">Restaurant</label><select className="form-select" value={nu.restaurantId} onChange={e => setNu({ ...nu, restaurantId: e.target.value })}><option value="">— Choisir —</option>{restaurants.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}</select></div><div style={{ display: "flex", gap: 10, marginTop: 20 }}><button className="btn btn-secondary" onClick={() => setShowAddUser(false)} style={{ flex: 1, justifyContent: "center" }}>Annuler</button><button className="btn btn-primary" onClick={addU} style={{ flex: 1, justifyContent: "center" }}>Créer</button></div></div></div>}
+    <div style={{ marginTop: 24 }}><div className="card" style={{ borderColor: "rgba(248,113,113,0.2)" }}><div className="card-header"><div><div className="card-title" style={{ color: "var(--red)" }}>Zone de danger</div><div className="card-subtitle">Actions irréversibles</div></div></div><button className="btn" onClick={onResetFebruary} style={{ width: "100%", justifyContent: "center", background: "var(--red-bg)", color: "var(--red)", border: "1px solid rgba(248,113,113,0.2)" }}><Icon name="trash" size={16} color="var(--red)" /> RAZ février : CA à 0 + supprimer factures</button></div></div>
+    {showAddUser && <div className="modal-overlay" onClick={() => setShowAddUser(false)}><div className="modal-content" onClick={e => e.stopPropagation()}><div style={{ fontSize: 20, fontWeight: 700, marginBottom: 20 }}>Nouvel utilisateur</div><div className="form-group"><label className="form-label">Rôle</label><div style={{ display: "flex", gap: 8 }}><button className={"btn btn-sm " + (nu.role === "admin" ? "btn-primary" : "btn-secondary")} onClick={() => setNu({ ...nu, role: "admin", restaurantId: "" })}>Admin</button><button className={"btn btn-sm " + (nu.role === "manager" ? "btn-primary" : "btn-secondary")} onClick={() => setNu({ ...nu, role: "manager" })}>Manager</button></div></div><div className="form-group"><label className="form-label">Nom</label><input className="form-input" value={nu.name} onChange={e => setNu({ ...nu, name: e.target.value })} placeholder="Jean Dupont" /></div><div className="form-group"><label className="form-label">Email</label><input className="form-input" type="email" value={nu.email} onChange={e => setNu({ ...nu, email: e.target.value })} placeholder="jean@restaurant.fr" /></div><div className="form-group"><label className="form-label">Mot de passe</label><input className="form-input" value={nu.password} onChange={e => setNu({ ...nu, password: e.target.value })} placeholder="Min. 4 caractères" /></div>{nu.role === "manager" && <div className="form-group"><label className="form-label">Restaurant</label><select className="form-select" value={nu.restaurantId} onChange={e => setNu({ ...nu, restaurantId: e.target.value })}><option value="">— Choisir —</option>{restaurants.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}</select></div>}<div style={{ display: "flex", gap: 10, marginTop: 20 }}><button className="btn btn-secondary" onClick={() => setShowAddUser(false)} style={{ flex: 1, justifyContent: "center" }}>Annuler</button><button className="btn btn-primary" onClick={addU} style={{ flex: 1, justifyContent: "center" }}>Créer</button></div></div></div>}
+    {editUser && <div className="modal-overlay" onClick={() => setEditUser(null)}><div className="modal-content" onClick={e => e.stopPropagation()}><div style={{ fontSize: 20, fontWeight: 700, marginBottom: 4 }}>Modifier le mot de passe</div><div style={{ fontSize: 14, color: "var(--text-secondary)", marginBottom: 20 }}>{editUser.name} ({editUser.email})</div><div className="form-group"><label className="form-label">Nouveau mot de passe</label><input className="form-input" type="text" value={editPw} onChange={e => setEditPw(e.target.value)} placeholder="Nouveau mot de passe" autoFocus /></div><div style={{ display: "flex", gap: 10, marginTop: 16 }}><button className="btn btn-secondary" onClick={() => setEditUser(null)} style={{ flex: 1, justifyContent: "center" }}>Annuler</button><button className="btn btn-primary" onClick={savePw} style={{ flex: 1, justifyContent: "center" }}><Icon name="check" size={15} color="var(--bg-primary)" /> Enregistrer</button></div></div></div>}
     </div>
   );
 };
@@ -709,7 +709,11 @@ export default function App() {
   });
   const [page, setPage] = useState("dashboard");
   const [restaurants, setRestaurants] = useState(DEMO_RESTAURANTS);
-  const [allUsers, setAllUsers] = useState(DEMO_USERS);
+  const [allUsers, setAllUsers] = useState(() => {
+    try { const s = localStorage.getItem("rp_users"); if (s) return JSON.parse(s); } catch(e) {}
+    return DEMO_USERS;
+  });
+  useEffect(() => { try { localStorage.setItem("rp_users", JSON.stringify(allUsers)); } catch(e) {} }, [allUsers]);
   const [restoData, setRestoData] = useState(() => {
     const rd = {};
     DEMO_RESTAURANTS.forEach(r => { rd[r.id] = generateDemoData(r.objectives); });
@@ -730,14 +734,17 @@ export default function App() {
   const [toasts, setToasts] = useState([]);
   useEffect(() => { document.documentElement.setAttribute("data-theme", theme); try { localStorage.setItem("rp_theme", theme); } catch(e) {} }, [theme]);
   const toggleTheme = () => setTheme(t => t === "dark" ? "light" : "dark");
-  const handleLogout = () => { try { localStorage.removeItem("rp_session"); localStorage.removeItem("rp_session_expiry"); } catch(e) {} setUser(null); setCurrentRestoId(null); };
+  const handleLogout = () => { try { localStorage.removeItem("rp_session"); localStorage.removeItem("rp_session_expiry"); } catch(e) {} setUser(null); setCurrentRestoId(null); setPage("dashboard"); };
   const addToast = (message, type = "info") => { const id = Date.now(); setToasts((t) => [...t, { id, message, type }]); setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 4000); };
 
   const setCurrentData = (newData) => { if (currentRestoId) setRestoData(prev => ({ ...prev, [currentRestoId]: newData })); };
   const handleUpdateObjectives = (restoId, updates) => { setRestaurants(rs => rs.map(r => r.id === restoId ? { ...r, ...updates } : r)); };
-  const handleAddResto = (nr) => { const id = "r" + Date.now(); const newR = { id, name: nr.name, address: nr.address, color: nr.color, objectives: { ...DEFAULT_OBJ }, dateOverrides: {} }; setRestaurants(rs => [...rs, newR]); setRestoData(prev => ({ ...prev, [id]: generateDemoData(DEFAULT_OBJ) })); };
-  const handleAddUser = (nu) => { setAllUsers(us => [...us, { email: nu.email, password: nu.password, name: nu.name, role: "manager", restaurantId: nu.restaurantId }]); };
+  const handleAddResto = (nr) => { const id = "r" + Date.now(); const newR = { id, name: nr.name, address: nr.address, color: nr.color, objectives: { ...DEFAULT_OBJ }, dateOverrides: {} }; setRestaurants(rs => [...rs, newR]); setRestoData(prev => ({ ...prev, [id]: [] })); };
+  const handleDeleteResto = (id) => { if (restaurants.length <= 1) { addToast("Impossible : il faut au moins 1 restaurant", "error"); return; } if (!window.confirm("Supprimer ce restaurant et toutes ses données ?")) return; setRestaurants(rs => rs.filter(r => r.id !== id)); setRestoData(prev => { const n = { ...prev }; delete n[id]; return n; }); setAllUsers(us => us.map(u => u.restaurantId === id ? { ...u, restaurantId: null } : u)); if (currentRestoId === id) setCurrentRestoId(restaurants.find(r => r.id !== id)?.id || null); addToast("Restaurant supprimé", "info"); };
+  const handleAddUser = (nu) => { if (allUsers.find(u => u.email === nu.email)) { addToast("Cet email existe déjà", "error"); return; } setAllUsers(us => [...us, { email: nu.email, password: nu.password, name: nu.name, role: nu.role || "manager", restaurantId: nu.restaurantId || null }]); };
+  const handleUpdateUser = (email, updates) => { setAllUsers(us => us.map(u => u.email === email ? { ...u, ...updates } : u)); };
   const handleDeleteUser = (email) => { setAllUsers(us => us.filter(u => u.email !== email)); };
+  const resetFebruaryData = () => { if (!window.confirm("⚠️ Remettre à zéro les CA et supprimer toutes les factures de février 2025 ?\n\nCette action est irréversible.")) return; setRestoData(prev => { const n = {}; Object.keys(prev).forEach(rid => { n[rid] = prev[rid].map(d => { if (d.date.startsWith("2025-02")) return { ...d, ca: 0, ca_ht: 0, invoices: [] }; return d; }); }); return n; }); addToast("Données de février remises à zéro", "info"); };
 
   const navItems = [
     { id: "dashboard", label: "Tableau de bord", icon: "dashboard" },
@@ -747,7 +754,7 @@ export default function App() {
     { id: "objectives", label: "Objectifs CA", icon: "target" },
     ...(isAdmin ? [{ id: "restos", label: "Restaurants", icon: "settings" }] : []),
   ];
-  if (!user) return <><style>{CSS}</style><LoginPage onLogin={setUser} /></>;
+  if (!user) return <><style>{CSS}</style><LoginPage onLogin={setUser} users={allUsers} /></>;
   const pageTitles = { dashboard: "Tableau de bord", input: "Saisie quotidienne", history: "Historique", alerts: "Alertes & Emails", objectives: "Objectifs CA", restos: "Restaurants & Managers" };
   return (
     <><style>{CSS}</style><ToastContainer toasts={toasts} />
@@ -765,7 +772,7 @@ export default function App() {
         {page === "history" && <HistoryPage data={currentData} />}
         {page === "alerts" && <AlertsPage data={currentData} addToast={addToast} />}
         {page === "objectives" && <ObjectivesPage restaurants={restaurants} currentRestoId={currentRestoId} isAdmin={isAdmin} onUpdateObjectives={handleUpdateObjectives} addToast={addToast} />}
-        {isAdmin && page === "restos" && <RestosPage restaurants={restaurants} users={allUsers} onAddResto={handleAddResto} onAddUser={handleAddUser} onDeleteUser={handleDeleteUser} addToast={addToast} />}
+        {isAdmin && page === "restos" && <RestosPage restaurants={restaurants} users={allUsers} currentUser={user} onAddResto={handleAddResto} onDeleteResto={handleDeleteResto} onAddUser={handleAddUser} onUpdateUser={handleUpdateUser} onDeleteUser={handleDeleteUser} onResetFebruary={resetFebruaryData} addToast={addToast} />}
       </main>
     </div></>
   );
