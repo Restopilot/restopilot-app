@@ -438,7 +438,7 @@ const LoginPage = ({ onLogin, users }) => {
 
 const DashboardPage = ({ data }) => {
   const todayData = data.find((d) => d.date === today());
-  const latest = todayData || data[data.length - 1];
+  const latest = todayData || { date: today(), ca: 0, ca_ht: 0, objectif: 0, invoices: [] };
   const stats = useMemo(() => {
     if (!latest) return null;
     const totalAchats = latest.invoices.reduce((s, i) => s + i.montant, 0);
