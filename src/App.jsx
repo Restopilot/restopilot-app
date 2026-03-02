@@ -486,7 +486,7 @@ const DashboardPage = ({ data }) => {
   );
 };
 
-const InputPage = ({ data, setData, addToast, isAdmin }) => {
+const InputPage = ({ data, setData, addToast, isAdmin, restoObjectives, restoOverrides }) => {
   const todayStr = today();
   const existing = data.find((d) => d.date === todayStr);
   const [ca, setCa] = useState(existing?.ca?.toString() || "");
@@ -495,13 +495,14 @@ const InputPage = ({ data, setData, addToast, isAdmin }) => {
   const [invoices, setInvoices] = useState(existing?.invoices || []);
   const [newInvoice, setNewInvoice] = useState({ fournisseur: "", montant: "", categorie: CATEGORIES[0] });
   const [selectedDate, setSelectedDate] = useState(todayStr);
-  useEffect(() => { const dayData = data.find((d) => d.date === selectedDate); setCa(dayData?.ca?.toString() || ""); setCaHt(dayData?.ca_ht?.toString() || ""); setObjectif(dayData?.objectif?.toString() || ""); setInvoices(dayData?.invoices || []); }, [selectedDate, data]);
+  const getRestoObj = (ds) => { if (restoOverrides && restoOverrides[ds]) return restoOverrides[ds]; if (restoObjectives) { const dow = getDow(ds); return restoObjectives[dow] || 0; } return 0; };
+  useEffect(() => { const dayData = data.find((d) => d.date === selectedDate); setCa(dayData?.ca?.toString() || ""); setCaHt(dayData?.ca_ht?.toString() || ""); const obj = dayData?.objectif || getRestoObj(selectedDate); setObjectif(obj ? obj.toString() : ""); setInvoices(dayData?.invoices || []); }, [selectedDate, data, restoObjectives, restoOverrides]);
   const addInvoice = () => { if (!newInvoice.fournisseur || !newInvoice.montant) return; setInvoices([...invoices, { id: selectedDate + "-" + Date.now(), fournisseur: newInvoice.fournisseur, montant: parseFloat(newInvoice.montant), categorie: newInvoice.categorie, date: selectedDate }]); setNewInvoice({ fournisseur: "", montant: "", categorie: CATEGORIES[0] }); };
   const removeInvoice = (id) => setInvoices(invoices.filter((i) => i.id !== id));
   const saveDay = () => {
     if (!ca || !caHt) { addToast("Veuillez remplir CA TTC et CA HT", "error"); return; }
     if (isAdmin && !objectif) { addToast("Veuillez remplir l'objectif", "error"); return; }
-    const dayEntry = { date: selectedDate, ca: parseFloat(ca), ca_ht: parseFloat(caHt), objectif: parseFloat(objectif) || (data.find(d => d.date === selectedDate)?.objectif || 0), invoices };
+    const dayEntry = { date: selectedDate, ca: parseFloat(ca), ca_ht: parseFloat(caHt), objectif: parseFloat(objectif) || getRestoObj(selectedDate) || 0, invoices };
     const idx = data.findIndex((d) => d.date === selectedDate);
     const newData = [...data];
     if (idx >= 0) newData[idx] = dayEntry; else { newData.push(dayEntry); newData.sort((a, b) => a.date.localeCompare(b.date)); }
@@ -769,7 +770,7 @@ export default function App() {
       <main className="main-content">
         <div className="top-bar"><div className="top-bar-left"><button className="burger" onClick={() => setSidebarOpen(true)}><Icon name="menu" size={22} /></button><div><div className="page-title">{pageTitles[page]}</div><div className="page-date">{formatDateFull(today())}</div></div></div><div className="top-bar-right"><RestoPicker restaurants={restaurants} current={currentRestoId} setCurrent={setCurrentRestoId} isAdmin={isAdmin} /><button className="btn btn-sm btn-primary" onClick={() => setPage("input")}><Icon name="plus" size={14} color="var(--bg-primary)" /> Saisie</button></div></div>
         {page === "dashboard" && <DashboardPage data={currentData} />}
-        {page === "input" && <InputPage data={currentData} setData={setCurrentData} addToast={addToast} isAdmin={isAdmin} />}
+        {page === "input" && <InputPage data={currentData} setData={setCurrentData} addToast={addToast} isAdmin={isAdmin} restoObjectives={currentResto?.objectives} restoOverrides={currentResto?.dateOverrides} />}
         {page === "history" && <HistoryPage data={currentData} />}
         {page === "alerts" && <AlertsPage data={currentData} addToast={addToast} />}
         {page === "objectives" && <ObjectivesPage restaurants={restaurants} currentRestoId={currentRestoId} isAdmin={isAdmin} onUpdateObjectives={handleUpdateObjectives} addToast={addToast} />}
