@@ -720,14 +720,14 @@ export default function App() {
     return DEMO_USERS;
   });
   useEffect(() => { try { localStorage.setItem("rp_users", JSON.stringify(allUsers)); } catch(e) {} }, [allUsers]);
-  useEffect(() => { try { localStorage.setItem("rp_restaurants", JSON.stringify(restaurants)); } catch(e) {} }, [restaurants]);
-  useEffect(() => { try { localStorage.setItem("rp_restodata", JSON.stringify(restoData)); } catch(e) {} }, [restoData]);
   const [restoData, setRestoData] = useState(() => {
     try { const s = localStorage.getItem("rp_restodata"); if (s) return JSON.parse(s); } catch(e) {}
     const rd = {};
     DEMO_RESTAURANTS.forEach(r => { rd[r.id] = generateDemoData(r.objectives); });
     return rd;
   });
+  useEffect(() => { try { localStorage.setItem("rp_restaurants", JSON.stringify(restaurants)); } catch(e) {} }, [restaurants]);
+  useEffect(() => { try { localStorage.setItem("rp_restodata", JSON.stringify(restoData)); } catch(e) {} }, [restoData]);
   const [currentRestoId, setCurrentRestoId] = useState(null);
 
   useEffect(() => {
