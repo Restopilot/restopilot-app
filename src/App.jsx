@@ -1,5 +1,8 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart, Legend, PieChart, Pie, Cell } from "recharts";
+import { createClient } from "@supabase/supabase-js";
+
+const supabase = createClient("https://yhvbnlgowccixqslijia.supabase.co", "sb_publishable_rURgUoNVrGxQm4e6OjrxsA_E5Skv2Tl");
 
 const CATEGORIES = ["Viande", "Poisson", "Légumes", "Fruits", "Boissons", "Produits laitiers", "Épicerie", "Boulangerie", "Autre"];
 const RATIO_ALERT_THRESHOLD = 28;
@@ -9,44 +12,7 @@ const JOURS_SHORT = ["Lun","Mar","Mer","Jeu","Ven","Sam","Dim"];
 const DEFAULT_OBJ = {0:2800,1:3000,2:3200,3:3500,4:4200,5:4800,6:2500};
 const getDow = (ds) => { const d = new Date(ds + "T00:00:00"); return (d.getDay() + 6) % 7; };
 
-const generateDemoData = (objectives) => {
-  const obj = objectives || DEFAULT_OBJ;
-  const data = [];
-  const now = new Date();
-  for (let i = 29; i >= 0; i--) {
-    const date = new Date(now);
-    date.setDate(date.getDate() - i);
-    const ds = date.toISOString().split("T")[0];
-    const dow = getDow(ds);
-    const dayObj = obj[dow] || 3000;
-    const ca = Math.round(dayObj * (0.7 + Math.random() * 0.6));
-    const ca_ht = Math.round(ca / 1.1);
-    const totalAchats = Math.round(ca_ht * (0.2 + Math.random() * 0.15));
-    const invoices = [];
-    const numInv = 2 + Math.floor(Math.random() * 4);
-    const fournisseurs = ["Metro", "Rungis Express", "Transgourmet", "Pomona", "Brake France", "Davigel"];
-    let remaining = totalAchats;
-    for (let j = 0; j < numInv; j++) {
-      const amt = j === numInv - 1 ? remaining : Math.round(remaining * (0.2 + Math.random() * 0.4));
-      remaining -= amt;
-      invoices.push({ id: ds + "-" + j, fournisseur: fournisseurs[Math.floor(Math.random() * fournisseurs.length)], montant: Math.max(amt, 50), categorie: CATEGORIES[Math.floor(Math.random() * CATEGORIES.length)], date: ds });
-    }
-    data.push({ date: ds, ca, ca_ht, objectif: dayObj, invoices });
-  }
-  return data;
-};
 
-const DEMO_RESTAURANTS = [
-  { id: "r1", name: "Le Bistrot Parisien", address: "12 rue de Rivoli, Paris", color: "#4ADE80", objectives: { ...DEFAULT_OBJ }, dateOverrides: {} },
-  { id: "r2", name: "La Table du Marché", address: "8 place Victor Hugo, Lyon", color: "#60A5FA", objectives: { 0:2200, 1:2500, 2:2800, 3:3000, 4:3800, 5:4200, 6:2000 }, dateOverrides: {} },
-  { id: "r3", name: "Chez Marcel", address: "25 cours Mirabeau, Aix", color: "#FBBF24", objectives: { 0:1800, 1:2000, 2:2200, 3:2500, 4:3200, 5:3800, 6:1500 }, dateOverrides: {} },
-];
-
-const DEMO_USERS = [
-  { email: "admin@restopilot.fr", password: "admin123", name: "Alexandre Dupont", role: "admin", restaurantId: null },
-  { email: "marie@bistrot.fr", password: "manager123", name: "Marie Laurent", role: "manager", restaurantId: "r1" },
-  { email: "lucas@table.fr", password: "manager123", name: "Lucas Martin", role: "manager", restaurantId: "r2" },
-];
 
 const formatCurrency = (v) => new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(v);
 const formatPct = (v) => v.toFixed(1) + "%";
@@ -417,12 +383,23 @@ const RestoPicker = ({ restaurants, current, setCurrent, isAdmin }) => {
   );
 };
 
-const LoginPage = ({ onLogin, users }) => {
+const LoginPage = ({ onLogin }) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
   const [remember, setRemember] = useState(true);
-  const handleSubmit = (e) => { e.preventDefault(); const user = users.find((u) => u.email === email && u.password === password); if (user) { if (remember) { try { localStorage.setItem("rp_session", JSON.stringify(user)); localStorage.setItem("rp_session_expiry", String(Date.now() + 30 * 24 * 60 * 60 * 1000)); } catch(e) {} } onLogin(user); } else setError("Identifiants incorrects"); };
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+    const { data, error: err } = await supabase.from("app_users").select("*").eq("email", email).eq("password", password).single();
+    setLoading(false);
+    if (err || !data) { setError("Identifiants incorrects"); return; }
+    const user = { id: data.id, email: data.email, name: data.name, role: data.role, restaurantId: data.restaurant_id };
+    if (remember) { try { localStorage.setItem("rp_session", JSON.stringify(user)); localStorage.setItem("rp_session_expiry", String(Date.now() + 30 * 24 * 60 * 60 * 1000)); } catch(e) {} }
+    onLogin(user);
+  };
   return (
     <div className="login-page"><div className="login-card"><div className="login-brand"><h1>RestoPilot</h1><p>Gestion & Performance</p></div>
     <form onSubmit={handleSubmit}>
@@ -430,7 +407,7 @@ const LoginPage = ({ onLogin, users }) => {
       <div className="form-group"><label className="form-label">Mot de passe</label><input className="form-input" type="password" value={password} onChange={(e) => { setPassword(e.target.value); setError(""); }} placeholder="••••••••" /></div>
       <label className="remember-row"><input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} />Rester connecté</label>
       {error && <div style={{ color: "var(--red)", fontSize: 13, marginBottom: 16 }}>{error}</div>}
-      <button className="btn btn-primary" style={{ width: "100%", justifyContent: "center", marginTop: 8, padding: "12px 20px" }} type="submit">Se connecter</button>
+      <button className="btn btn-primary" style={{ width: "100%", justifyContent: "center", marginTop: 8, padding: "12px 20px" }} type="submit" disabled={loading}>{loading ? "Connexion..." : "Se connecter"}</button>
     </form>
     </div></div>
   );
@@ -711,49 +688,148 @@ export default function App() {
     try { return localStorage.getItem("rp_theme") || "dark"; } catch(e) { return "dark"; }
   });
   const [page, setPage] = useState("dashboard");
-  const [restaurants, setRestaurants] = useState(() => {
-    try { const s = localStorage.getItem("rp_restaurants"); if (s) return JSON.parse(s); } catch(e) {}
-    return DEMO_RESTAURANTS;
-  });
-  const [allUsers, setAllUsers] = useState(() => {
-    try { const s = localStorage.getItem("rp_users"); if (s) return JSON.parse(s); } catch(e) {}
-    return DEMO_USERS;
-  });
-  useEffect(() => { try { localStorage.setItem("rp_users", JSON.stringify(allUsers)); } catch(e) {} }, [allUsers]);
-  const [restoData, setRestoData] = useState(() => {
-    try { const s = localStorage.getItem("rp_restodata"); if (s) return JSON.parse(s); } catch(e) {}
-    const rd = {};
-    DEMO_RESTAURANTS.forEach(r => { rd[r.id] = generateDemoData(r.objectives); });
-    return rd;
-  });
-  useEffect(() => { try { localStorage.setItem("rp_restaurants", JSON.stringify(restaurants)); } catch(e) {} }, [restaurants]);
-  useEffect(() => { try { localStorage.setItem("rp_restodata", JSON.stringify(restoData)); } catch(e) {} }, [restoData]);
+  const [restaurants, setRestaurants] = useState([]);
+  const [allUsers, setAllUsers] = useState([]);
+  const [restoData, setRestoData] = useState({});
   const [currentRestoId, setCurrentRestoId] = useState(null);
+  const [dbReady, setDbReady] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [toasts, setToasts] = useState([]);
 
+  const addToast = useCallback((message, type = "info") => { const id = Date.now(); setToasts((t) => [...t, { id, message, type }]); setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 4000); }, []);
+
+  // ---- Fetch all data from Supabase ----
+  const fetchAll = useCallback(async () => {
+    const { data: restos } = await supabase.from("restaurants").select("*").order("created_at");
+    const { data: users } = await supabase.from("app_users").select("*").order("created_at");
+    const { data: days } = await supabase.from("daily_data").select("*").order("date");
+    const { data: invs } = await supabase.from("invoices").select("*").order("date");
+    const rList = (restos || []).map(r => ({
+      id: r.id, name: r.name, address: r.address || "", color: r.color || "#4ADE80",
+      objectives: r.objectives || DEFAULT_OBJ, dateOverrides: r.date_overrides || {}
+    }));
+    const uList = (users || []).map(u => ({
+      id: u.id, email: u.email, password: u.password, name: u.name, role: u.role, restaurantId: u.restaurant_id
+    }));
+    const rd = {};
+    rList.forEach(r => { rd[r.id] = []; });
+    (days || []).forEach(d => {
+      if (!rd[d.restaurant_id]) rd[d.restaurant_id] = [];
+      rd[d.restaurant_id].push({
+        date: d.date, ca: Number(d.ca), ca_ht: Number(d.ca_ht), objectif: Number(d.objectif),
+        invoices: (invs || []).filter(i => i.restaurant_id === d.restaurant_id && i.date === d.date).map(i => ({
+          id: String(i.id), fournisseur: i.fournisseur, montant: Number(i.montant), categorie: i.categorie, date: i.date
+        }))
+      });
+    });
+    Object.keys(rd).forEach(k => rd[k].sort((a, b) => a.date.localeCompare(b.date)));
+    setRestaurants(rList);
+    setAllUsers(uList);
+    setRestoData(rd);
+    setDbReady(true);
+    return rList;
+  }, []);
+
+  // ---- Initial load after login ----
   useEffect(() => {
-    if (!user) return;
-    if (user.role === "admin") setCurrentRestoId(restaurants[0]?.id || null);
-    else setCurrentRestoId(user.restaurantId);
-  }, [user]);
+    if (!user) { setDbReady(false); return; }
+    fetchAll().then(rList => {
+      if (user.role === "admin") setCurrentRestoId(rList[0]?.id || null);
+      else setCurrentRestoId(user.restaurantId);
+    });
+  }, [user, fetchAll]);
 
   const isAdmin = user?.role === "admin";
   const currentResto = restaurants.find(r => r.id === currentRestoId);
   const currentData = restoData[currentRestoId] || [];
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [toasts, setToasts] = useState([]);
+
   useEffect(() => { document.documentElement.setAttribute("data-theme", theme); try { localStorage.setItem("rp_theme", theme); } catch(e) {} }, [theme]);
   const toggleTheme = () => setTheme(t => t === "dark" ? "light" : "dark");
   const handleLogout = () => { try { localStorage.removeItem("rp_session"); localStorage.removeItem("rp_session_expiry"); } catch(e) {} setUser(null); setCurrentRestoId(null); setPage("dashboard"); };
-  const addToast = (message, type = "info") => { const id = Date.now(); setToasts((t) => [...t, { id, message, type }]); setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 4000); };
 
-  const setCurrentData = (newData) => { if (currentRestoId) setRestoData(prev => ({ ...prev, [currentRestoId]: newData })); };
-  const handleUpdateObjectives = (restoId, updates) => { setRestaurants(rs => rs.map(r => r.id === restoId ? { ...r, ...updates } : r)); };
-  const handleAddResto = (nr) => { const id = "r" + Date.now(); const newR = { id, name: nr.name, address: nr.address, color: nr.color, objectives: { ...DEFAULT_OBJ }, dateOverrides: {} }; setRestaurants(rs => [...rs, newR]); setRestoData(prev => ({ ...prev, [id]: [] })); };
-  const handleDeleteResto = (id) => { if (restaurants.length <= 1) { addToast("Impossible : il faut au moins 1 restaurant", "error"); return; } if (!window.confirm("Supprimer ce restaurant et toutes ses données ?")) return; setRestaurants(rs => rs.filter(r => r.id !== id)); setRestoData(prev => { const n = { ...prev }; delete n[id]; return n; }); setAllUsers(us => us.map(u => u.restaurantId === id ? { ...u, restaurantId: null } : u)); if (currentRestoId === id) setCurrentRestoId(restaurants.find(r => r.id !== id)?.id || null); addToast("Restaurant supprimé", "info"); };
-  const handleAddUser = (nu) => { if (allUsers.find(u => u.email === nu.email)) { addToast("Cet email existe déjà", "error"); return; } setAllUsers(us => [...us, { email: nu.email, password: nu.password, name: nu.name, role: nu.role || "manager", restaurantId: nu.restaurantId || null }]); };
-  const handleUpdateUser = (email, updates) => { setAllUsers(us => us.map(u => u.email === email ? { ...u, ...updates } : u)); };
-  const handleDeleteUser = (email) => { setAllUsers(us => us.filter(u => u.email !== email)); };
-  const resetFebruaryData = () => { if (!window.confirm("⚠️ Remettre à zéro les CA et supprimer toutes les factures de février 2025 ?\n\nCette action est irréversible.")) return; setRestoData(prev => { const n = {}; Object.keys(prev).forEach(rid => { n[rid] = prev[rid].map(d => { if (d.date.startsWith("2025-02")) return { ...d, ca: 0, ca_ht: 0, invoices: [] }; return d; }); }); return n; }); addToast("Données de février remises à zéro", "info"); };
+  // ---- Save day data to Supabase ----
+  const setCurrentData = async (newData) => {
+    if (!currentRestoId) return;
+    setRestoData(prev => ({ ...prev, [currentRestoId]: newData }));
+    // Find what changed (most recent save = last modified entry)
+    const oldData = restoData[currentRestoId] || [];
+    for (const entry of newData) {
+      const old = oldData.find(d => d.date === entry.date);
+      if (!old || old.ca !== entry.ca || old.ca_ht !== entry.ca_ht || old.objectif !== entry.objectif || JSON.stringify(old.invoices) !== JSON.stringify(entry.invoices)) {
+        // Upsert daily_data
+        await supabase.from("daily_data").upsert({
+          restaurant_id: currentRestoId, date: entry.date,
+          ca: entry.ca, ca_ht: entry.ca_ht, objectif: entry.objectif, updated_at: new Date().toISOString()
+        }, { onConflict: "restaurant_id,date" });
+        // Replace invoices for this day
+        await supabase.from("invoices").delete().eq("restaurant_id", currentRestoId).eq("date", entry.date);
+        if (entry.invoices.length > 0) {
+          await supabase.from("invoices").insert(
+            entry.invoices.map(i => ({ restaurant_id: currentRestoId, date: entry.date, fournisseur: i.fournisseur, montant: i.montant, categorie: i.categorie }))
+          );
+        }
+      }
+    }
+  };
+
+  // ---- Restaurant CRUD ----
+  const handleUpdateObjectives = async (restoId, updates) => {
+    setRestaurants(rs => rs.map(r => r.id === restoId ? { ...r, ...updates } : r));
+    const upd = {};
+    if (updates.objectives) upd.objectives = updates.objectives;
+    if (updates.dateOverrides !== undefined) upd.date_overrides = updates.dateOverrides;
+    await supabase.from("restaurants").update(upd).eq("id", restoId);
+  };
+  const handleAddResto = async (nr) => {
+    const id = "r" + Date.now();
+    const newR = { id, name: nr.name, address: nr.address, color: nr.color, objectives: { ...DEFAULT_OBJ }, dateOverrides: {} };
+    setRestaurants(rs => [...rs, newR]);
+    setRestoData(prev => ({ ...prev, [id]: [] }));
+    await supabase.from("restaurants").insert({ id, name: nr.name, address: nr.address || "", color: nr.color, objectives: DEFAULT_OBJ, date_overrides: {} });
+  };
+  const handleDeleteResto = async (id) => {
+    if (restaurants.length <= 1) { addToast("Impossible : il faut au moins 1 restaurant", "error"); return; }
+    if (!window.confirm("Supprimer ce restaurant et toutes ses données ?")) return;
+    setRestaurants(rs => rs.filter(r => r.id !== id));
+    setRestoData(prev => { const n = { ...prev }; delete n[id]; return n; });
+    setAllUsers(us => us.map(u => u.restaurantId === id ? { ...u, restaurantId: null } : u));
+    if (currentRestoId === id) setCurrentRestoId(restaurants.find(r => r.id !== id)?.id || null);
+    await supabase.from("invoices").delete().eq("restaurant_id", id);
+    await supabase.from("daily_data").delete().eq("restaurant_id", id);
+    await supabase.from("app_users").update({ restaurant_id: null }).eq("restaurant_id", id);
+    await supabase.from("restaurants").delete().eq("id", id);
+    addToast("Restaurant supprimé", "info");
+  };
+
+  // ---- User CRUD ----
+  const handleAddUser = async (nu) => {
+    if (allUsers.find(u => u.email === nu.email)) { addToast("Cet email existe déjà", "error"); return; }
+    const newU = { email: nu.email, password: nu.password, name: nu.name, role: nu.role || "manager", restaurantId: nu.restaurantId || null };
+    setAllUsers(us => [...us, newU]);
+    await supabase.from("app_users").insert({ email: nu.email, password: nu.password, name: nu.name, role: nu.role || "manager", restaurant_id: nu.restaurantId || null });
+  };
+  const handleUpdateUser = async (email, updates) => {
+    setAllUsers(us => us.map(u => u.email === email ? { ...u, ...updates } : u));
+    const upd = {};
+    if (updates.password) upd.password = updates.password;
+    if (updates.name) upd.name = updates.name;
+    if (updates.role) upd.role = updates.role;
+    if (updates.restaurantId !== undefined) upd.restaurant_id = updates.restaurantId;
+    await supabase.from("app_users").update(upd).eq("email", email);
+  };
+  const handleDeleteUser = async (email) => {
+    setAllUsers(us => us.filter(u => u.email !== email));
+    await supabase.from("app_users").delete().eq("email", email);
+  };
+
+  // ---- RAZ February ----
+  const resetFebruaryData = async () => {
+    if (!window.confirm("⚠️ Remettre à zéro les CA et supprimer toutes les factures de février ?\\n\\nCette action est irréversible.")) return;
+    await supabase.from("invoices").delete().gte("date", "2025-02-01").lte("date", "2025-02-28");
+    await supabase.from("daily_data").update({ ca: 0, ca_ht: 0 }).gte("date", "2025-02-01").lte("date", "2025-02-28");
+    await fetchAll();
+    addToast("Données de février remises à zéro", "info");
+  };
 
   const navItems = [
     { id: "dashboard", label: "Tableau de bord", icon: "dashboard" },
@@ -763,7 +839,8 @@ export default function App() {
     { id: "objectives", label: "Objectifs CA", icon: "target" },
     ...(isAdmin ? [{ id: "restos", label: "Restaurants", icon: "settings" }] : []),
   ];
-  if (!user) return <><style>{CSS}</style><LoginPage onLogin={setUser} users={allUsers} /></>;
+  if (!user) return <><style>{CSS}</style><LoginPage onLogin={setUser} /></>;
+  if (!dbReady) return <><style>{CSS}</style><div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: "var(--bg-primary)", color: "var(--text-primary)", fontFamily: "DM Sans, sans-serif" }}><div style={{ textAlign: "center" }}><div style={{ fontSize: 28, fontWeight: 700, marginBottom: 12 }}>RestoPilot</div><div style={{ color: "var(--text-muted)" }}>Chargement des données...</div></div></div></>;
   const pageTitles = { dashboard: "Tableau de bord", input: "Saisie quotidienne", history: "Historique", alerts: "Alertes & Emails", objectives: "Objectifs CA", restos: "Restaurants & Managers" };
   return (
     <><style>{CSS}</style><ToastContainer toasts={toasts} />
