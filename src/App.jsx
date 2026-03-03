@@ -43,7 +43,7 @@ const Icon = ({ name, size = 20, color = "currentColor" }) => {
 };
 
 const CSS = `
-  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
   :root {
     --bg-primary: #111114;
@@ -78,11 +78,11 @@ const CSS = `
     --transition: 0.2s ease;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body, #root { font-family: 'DM Sans', sans-serif; background: var(--bg-primary); color: var(--text-primary); min-height: 100vh; -webkit-font-smoothing: antialiased; }
+  body, #root { font-family: 'Inter', sans-serif; background: var(--bg-primary); color: var(--text-primary); min-height: 100vh; -webkit-font-smoothing: antialiased; }
   .app-container { display: flex; min-height: 100vh; }
   .sidebar { width: 260px; background: var(--bg-secondary); border-right: 1px solid var(--border); display: flex; flex-direction: column; position: fixed; top: 0; left: 0; height: 100vh; z-index: 100; transition: transform 0.3s ease; }
   .sidebar-header { padding: 24px 20px; border-bottom: 1px solid var(--border); }
-  .sidebar-logo { font-family: 'Fraunces', serif; font-size: 22px; font-weight: 700; color: var(--accent); letter-spacing: -0.5px; }
+  .sidebar-logo { font-family: 'Inter', sans-serif; font-size: 22px; font-weight: 700; color: var(--accent); letter-spacing: -0.5px; }
   .sidebar-subtitle { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1.5px; margin-top: 4px; }
   .sidebar-nav { flex: 1; padding: 16px 12px; display: flex; flex-direction: column; gap: 4px; }
   .nav-item { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: var(--radius-sm); cursor: pointer; font-size: 14px; font-weight: 500; color: var(--text-secondary); transition: all var(--transition); border: 1px solid transparent; }
@@ -98,7 +98,7 @@ const CSS = `
   .top-bar { display: flex; align-items: center; justify-content: space-between; padding: 16px 32px; border-bottom: 1px solid var(--border); background: var(--bg-secondary); position: sticky; top: 0; z-index: 50; }
   .top-bar-left { display: flex; align-items: center; gap: 12px; }
   .burger { display: none; background: none; border: none; color: var(--text-primary); cursor: pointer; padding: 8px; }
-  .page-title { font-family: 'Fraunces', serif; font-size: 20px; font-weight: 600; }
+  .page-title { font-family: 'Inter', sans-serif; font-size: 20px; font-weight: 600; }
   .page-date { font-size: 13px; color: var(--text-muted); }
   .top-bar-right { display: flex; align-items: center; gap: 12px; }
   .content-area { padding: 28px 32px; }
@@ -116,7 +116,7 @@ const CSS = `
   .kpi-card.blue::before { background: var(--blue); }
   .kpi-card.purple::before { background: var(--purple); }
   .kpi-label { font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px; }
-  .kpi-value { font-family: 'Fraunces', serif; font-size: 28px; font-weight: 700; line-height: 1.1; }
+  .kpi-value { font-family: 'Inter', sans-serif; font-size: 28px; font-weight: 700; line-height: 1.1; }
   .kpi-value.green { color: var(--accent); }
   .kpi-value.gold { color: var(--gold); }
   .kpi-value.red { color: var(--red); }
@@ -126,12 +126,12 @@ const CSS = `
   .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 24px; }
   .form-group { margin-bottom: 16px; }
   .form-label { display: block; font-size: 12px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
-  .form-input, .form-select { width: 100%; padding: 10px 14px; background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-primary); font-size: 14px; font-family: 'DM Sans', sans-serif; transition: border-color var(--transition); outline: none; }
+  .form-input, .form-select { width: 100%; padding: 10px 14px; background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-primary); font-size: 14px; font-family: 'Inter', sans-serif; transition: border-color var(--transition); outline: none; }
   .form-input:focus, .form-select:focus { border-color: var(--accent); }
   .form-input::placeholder { color: var(--text-muted); }
   .form-select { appearance: none; cursor: pointer; }
   .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-  .btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 20px; border-radius: var(--radius-sm); font-size: 14px; font-weight: 600; font-family: 'DM Sans', sans-serif; cursor: pointer; transition: all var(--transition); border: none; }
+  .btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 20px; border-radius: var(--radius-sm); font-size: 14px; font-weight: 600; font-family: 'Inter', sans-serif; cursor: pointer; transition: all var(--transition); border: none; }
   .btn-primary { background: var(--accent); color: var(--bg-primary); }
   .btn-primary:hover { background: var(--accent-dim); }
   .btn-secondary { background: var(--bg-card); border: 1px solid var(--border); color: var(--text-primary); }
@@ -166,7 +166,7 @@ const CSS = `
   .login-page::after { content: ''; position: absolute; width: 400px; height: 400px; background: radial-gradient(circle, rgba(251,191,36,0.04), transparent 70%); bottom: -100px; left: -100px; }
   .login-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 48px 40px; width: 420px; max-width: 90vw; box-shadow: var(--shadow-lg); position: relative; z-index: 1; }
   .login-brand { text-align: center; margin-bottom: 36px; }
-  .login-brand h1 { font-family: 'Fraunces', serif; font-size: 32px; font-weight: 700; color: var(--accent); margin-bottom: 4px; }
+  .login-brand h1 { font-family: 'Inter', sans-serif; font-size: 32px; font-weight: 700; color: var(--accent); margin-bottom: 4px; }
   .login-brand p { font-size: 13px; color: var(--text-muted); letter-spacing: 1.5px; text-transform: uppercase; }
   .custom-tooltip { background: var(--bg-secondary) !important; border: 1px solid var(--border) !important; border-radius: var(--radius-sm) !important; padding: 12px 16px !important; box-shadow: var(--shadow-lg) !important; }
   .custom-tooltip .label { font-size: 11px; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
@@ -257,7 +257,7 @@ const CSS = `
     color: var(--text-secondary);
     transition: all var(--transition);
     margin-bottom: 12px;
-    font-family: 'DM Sans', sans-serif;
+    font-family: 'Inter', sans-serif;
     width: 100%;
     justify-content: center;
   }
@@ -307,7 +307,7 @@ const CSS = `
 
   /* Restaurant picker */
   .resto-picker { position: relative; }
-  .resto-picker-btn { display: flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--bg-card); cursor: pointer; transition: all var(--transition); font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 500; color: var(--text-primary); }
+  .resto-picker-btn { display: flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--bg-card); cursor: pointer; transition: all var(--transition); font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 500; color: var(--text-primary); }
   .resto-picker-btn:hover { border-color: var(--border-light); }
   .resto-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
   .resto-dropdown { position: absolute; top: calc(100% + 6px); right: 0; min-width: 280px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-lg); z-index: 200; overflow: hidden; animation: scaleIn 0.2s ease; }
@@ -324,7 +324,7 @@ const CSS = `
   .obj-day.today { border-color: var(--accent); background: var(--accent-bg); }
   .obj-day-name { font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
   .obj-day.today .obj-day-name { color: var(--accent); }
-  .obj-day-input { width: 100%; text-align: center; padding: 8px 4px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 15px; font-weight: 600; font-family: 'DM Sans', sans-serif; color: var(--text-primary); outline: none; transition: all var(--transition); }
+  .obj-day-input { width: 100%; text-align: center; padding: 8px 4px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 15px; font-weight: 600; font-family: 'Inter', sans-serif; color: var(--text-primary); outline: none; transition: all var(--transition); }
   .obj-day-input:focus { border-color: var(--accent); }
   .obj-day-input:read-only { opacity: 0.7; cursor: default; }
   .obj-day-input:read-only:focus { border-color: var(--border); }
@@ -510,8 +510,8 @@ const InputPage = ({ data, setData, addToast, isAdmin, restoObjectives, restoOve
       <div>
         <div className="card" style={{ marginBottom: 20 }}><div className="card-header"><div className="card-title">Récapitulatif — {formatDateFR(selectedDate)}</div></div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
-            <div style={{ padding: 14, background: "var(--accent-bg)", borderRadius: "var(--radius-sm)", border: "1px solid rgba(74,222,128,0.15)" }}><div style={{ fontSize: 11, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.5px" }}>Total achats HT</div><div style={{ fontSize: 22, fontWeight: 700, color: "var(--accent)", fontFamily: "Fraunces, serif", marginTop: 4 }}>{formatCurrency(totalAchats)}</div></div>
-            <div style={{ padding: 14, background: ratio > RATIO_ALERT_THRESHOLD ? "var(--red-bg)" : "var(--gold-bg)", borderRadius: "var(--radius-sm)", border: "1px solid " + (ratio > RATIO_ALERT_THRESHOLD ? "rgba(248,113,113,0.2)" : "rgba(251,191,36,0.15)") }}><div style={{ fontSize: 11, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.5px" }}>Ratio HT/HT</div><div style={{ fontSize: 22, fontWeight: 700, color: ratio > RATIO_ALERT_THRESHOLD ? "var(--red)" : "var(--gold)", fontFamily: "Fraunces, serif", marginTop: 4 }}>{formatPct(ratio)}</div></div>
+            <div style={{ padding: 14, background: "var(--accent-bg)", borderRadius: "var(--radius-sm)", border: "1px solid rgba(74,222,128,0.15)" }}><div style={{ fontSize: 11, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.5px" }}>Total achats HT</div><div style={{ fontSize: 22, fontWeight: 700, color: "var(--accent)", fontFamily: "Inter, sans-serif", marginTop: 4 }}>{formatCurrency(totalAchats)}</div></div>
+            <div style={{ padding: 14, background: ratio > RATIO_ALERT_THRESHOLD ? "var(--red-bg)" : "var(--gold-bg)", borderRadius: "var(--radius-sm)", border: "1px solid " + (ratio > RATIO_ALERT_THRESHOLD ? "rgba(248,113,113,0.2)" : "rgba(251,191,36,0.15)") }}><div style={{ fontSize: 11, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.5px" }}>Ratio HT/HT</div><div style={{ fontSize: 22, fontWeight: 700, color: ratio > RATIO_ALERT_THRESHOLD ? "var(--red)" : "var(--gold)", fontFamily: "Inter, sans-serif", marginTop: 4 }}>{formatPct(ratio)}</div></div>
           </div>
           {invoices.length > 0 ? (<div style={{ maxHeight: 340, overflowY: "auto" }}>{invoices.map((inv) => (<div key={inv.id} className="invoice-item"><div className="invoice-left"><div className="invoice-icon" style={{ background: (CATEGORY_COLORS[inv.categorie] || "#94A3B8") + "22" }}>{CATEGORY_EMOJIS[inv.categorie] || "📦"}</div><div><div style={{ fontSize: 14, fontWeight: 500 }}>{inv.fournisseur}</div><div style={{ fontSize: 12, color: "var(--text-muted)" }}>{inv.categorie}</div></div></div><div style={{ display: "flex", alignItems: "center", gap: 12 }}><span style={{ fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>{formatCurrency(inv.montant)}</span><button className="btn-icon" onClick={() => removeInvoice(inv.id)} style={{ padding: 4, border: "none" }}><Icon name="trash" size={14} color="var(--red)" /></button></div></div>))}</div>) : (<div style={{ textAlign: "center", padding: 32, color: "var(--text-muted)" }}>Aucune facture ajoutée</div>)}
         </div>
@@ -550,7 +550,7 @@ const AlertsPage = ({ data, addToast }) => {
             <div style={{ padding: "12px 16px", background: "var(--bg-secondary)", borderBottom: "1px solid var(--border)", fontSize: 12, color: "var(--text-muted)" }}><div><strong>De :</strong> RestoPilot</div><div><strong>Objet :</strong> Récap du {formatDateFull(latest.date)}</div></div>
             <div style={{ padding: 20, fontSize: 14, lineHeight: 1.8, color: "var(--text-secondary)" }}>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }}>
-                {[{ label: "CA TTC", value: formatCurrency(latest.ca), color: "var(--accent)" },{ label: "CA HT", value: formatCurrency(latestHt), color: "var(--accent)" },{ label: "Objectif", value: formatCurrency(latest.objectif), color: "var(--gold)" },{ label: "Atteinte", value: formatPct(latestAtteinte), color: latestAtteinte >= 100 ? "var(--accent)" : "var(--red)" },{ label: "Achats HT", value: formatCurrency(latestTa), color: "var(--text-primary)" },{ label: "Ratio HT/HT", value: formatPct(latestRatio), color: latestRatio > RATIO_ALERT_THRESHOLD ? "var(--red)" : "var(--gold)" }].map((item) => (<div key={item.label} style={{ padding: 10, background: "var(--bg-card)", borderRadius: 6, border: "1px solid var(--border)" }}><div style={{ fontSize: 11, color: "var(--text-muted)" }}>{item.label}</div><div style={{ fontSize: 16, fontWeight: 700, color: item.color, fontFamily: "Fraunces, serif" }}>{item.value}</div></div>))}
+                {[{ label: "CA TTC", value: formatCurrency(latest.ca), color: "var(--accent)" },{ label: "CA HT", value: formatCurrency(latestHt), color: "var(--accent)" },{ label: "Objectif", value: formatCurrency(latest.objectif), color: "var(--gold)" },{ label: "Atteinte", value: formatPct(latestAtteinte), color: latestAtteinte >= 100 ? "var(--accent)" : "var(--red)" },{ label: "Achats HT", value: formatCurrency(latestTa), color: "var(--text-primary)" },{ label: "Ratio HT/HT", value: formatPct(latestRatio), color: latestRatio > RATIO_ALERT_THRESHOLD ? "var(--red)" : "var(--gold)" }].map((item) => (<div key={item.label} style={{ padding: 10, background: "var(--bg-card)", borderRadius: 6, border: "1px solid var(--border)" }}><div style={{ fontSize: 11, color: "var(--text-muted)" }}>{item.label}</div><div style={{ fontSize: 16, fontWeight: 700, color: item.color, fontFamily: "Inter, sans-serif" }}>{item.value}</div></div>))}
               </div>
               {latestRatio > RATIO_ALERT_THRESHOLD && (<div style={{ padding: 12, background: "var(--red-bg)", borderRadius: 6, border: "1px solid rgba(248,113,113,0.2)", color: "var(--red)", fontSize: 13 }}>⚠️ Ratio HT/HT dépasse {RATIO_ALERT_THRESHOLD}%.</div>)}
             </div>
@@ -610,7 +610,7 @@ const ObjectivesPage = ({ restaurant, restaurants, currentRestoId, isAdmin, onUp
                 <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 6 }}>€/jour</div>
               </div>
             ))}</div>
-            <div className="obj-total"><div style={{ fontSize: 14, color: "var(--text-secondary)", fontWeight: 500 }}>Total semaine</div><div style={{ fontSize: 22, fontWeight: 700, color: "var(--accent)", fontFamily: "Fraunces, serif", letterSpacing: "-0.5px" }}>{formatCurrency(weekTotal)}</div></div>
+            <div className="obj-total"><div style={{ fontSize: 14, color: "var(--text-secondary)", fontWeight: 500 }}>Total semaine</div><div style={{ fontSize: 22, fontWeight: 700, color: "var(--accent)", fontFamily: "Inter, sans-serif", letterSpacing: "-0.5px" }}>{formatCurrency(weekTotal)}</div></div>
             {isAdmin && <button className="btn btn-primary" onClick={saveDraft} style={{ width: "100%", justifyContent: "center", marginTop: 16 }}><Icon name="check" size={16} color="var(--bg-primary)" /> Enregistrer les objectifs</button>}
           </div>
         </div>
@@ -840,7 +840,7 @@ export default function App() {
     ...(isAdmin ? [{ id: "restos", label: "Restaurants", icon: "settings" }] : []),
   ];
   if (!user) return <><style>{CSS}</style><LoginPage onLogin={setUser} /></>;
-  if (!dbReady) return <><style>{CSS}</style><div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: "var(--bg-primary)", color: "var(--text-primary)", fontFamily: "DM Sans, sans-serif" }}><div style={{ textAlign: "center" }}><div style={{ fontSize: 28, fontWeight: 700, marginBottom: 12 }}>RestoPilot</div><div style={{ color: "var(--text-muted)" }}>Chargement des données...</div></div></div></>;
+  if (!dbReady) return <><style>{CSS}</style><div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: "var(--bg-primary)", color: "var(--text-primary)", fontFamily: "Inter, sans-serif" }}><div style={{ textAlign: "center" }}><div style={{ fontSize: 28, fontWeight: 700, marginBottom: 12 }}>RestoPilot</div><div style={{ color: "var(--text-muted)" }}>Chargement des données...</div></div></div></>;
   const pageTitles = { dashboard: "Tableau de bord", input: "Saisie quotidienne", history: "Historique", alerts: "Alertes & Emails", objectives: "Objectifs CA", restos: "Restaurants & Managers" };
   return (
     <><style>{CSS}</style><ToastContainer toasts={toasts} />
