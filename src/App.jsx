@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart, Legend, PieChart, Pie, Cell } from "recharts";
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart, Legend, PieChart, Pie, Cell, ComposedChart, ReferenceLine } from "recharts";
 import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient("https://yhvbnlgowccixqslijia.supabase.co", "sb_publishable_rURgUoNVrGxQm4e6OjrxsA_E5Skv2Tl");
@@ -447,52 +447,163 @@ const LoginPage = ({ onLogin }) => {
   );
 };
 
-const DashboardPage = ({ data }) => {
-  const todayData = data.find((d) => d.date === today());
+const exportCSV = (data, restoName) => {
+  const BOM = "\uFEFF";
+  const headers = ["Date","CA TTC","CA HT","Objectif","Atteinte (%)","Achats HT","Ratio (%)","Factures"];
+  const rows = data.map(d => {
+    const ht = d.ca_ht || Math.round(d.ca / 1.1);
+    const ta = d.invoices.reduce((s,i) => s + i.montant, 0);
+    const att = d.objectif > 0 ? ((d.ca / d.objectif) * 100).toFixed(1) : "0";
+    const rat = ht > 0 ? ((ta / ht) * 100).toFixed(1) : "0";
+    const invStr = d.invoices.map(i => i.fournisseur + " " + i.montant + "€ (" + i.categorie + ")").join(" | ");
+    return [d.date, d.ca, ht, d.objectif, att, ta, rat, invStr].join(";");
+  });
+  const csv = BOM + headers.join(";") + "\n" + rows.join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a"); a.href = url; a.download = (restoName || "restopilot") + "_export.csv"; a.click(); URL.revokeObjectURL(url);
+};
+
+const exportPDF = (data, restoName, periodLabel) => {
+  const ht = data.reduce((s,d) => s + (d.ca_ht || Math.round(d.ca / 1.1)), 0);
+  const ca = data.reduce((s,d) => s + d.ca, 0);
+  const ta = data.reduce((s,d) => s + d.invoices.reduce((a,i) => a + i.montant, 0), 0);
+  const rat = ht > 0 ? ((ta / ht) * 100).toFixed(1) : "0";
+  const fc = (v) => new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(v);
+  const w = window.open("", "_blank");
+  w.document.write("<html><head><title>Export " + restoName + "</title><style>body{font-family:Inter,system-ui,sans-serif;padding:40px;color:#333}h1{font-size:22px;margin-bottom:4px}h2{font-size:14px;color:#666;margin-bottom:24px;font-weight:400}.summary{display:flex;gap:20px;margin-bottom:32px}.s-box{flex:1;padding:16px;border:1px solid #ddd;border-radius:8px}.s-label{font-size:11px;color:#999;text-transform:uppercase;letter-spacing:0.5px}.s-val{font-size:20px;font-weight:700;margin-top:4px}table{width:100%;border-collapse:collapse;font-size:13px}th{text-align:left;padding:8px 10px;border-bottom:2px solid #ddd;font-size:11px;text-transform:uppercase;color:#999}td{padding:8px 10px;border-bottom:1px solid #eee}.r{text-align:right}@media print{body{padding:20px}}</style></head><body>");
+  w.document.write("<h1>" + restoName + "</h1><h2>" + periodLabel + " — " + data.length + " jours</h2>");
+  w.document.write('<div class="summary"><div class="s-box"><div class="s-label">CA TTC</div><div class="s-val">' + fc(ca) + '</div></div><div class="s-box"><div class="s-label">CA HT</div><div class="s-val">' + fc(ht) + '</div></div><div class="s-box"><div class="s-label">Achats HT</div><div class="s-val">' + fc(ta) + '</div></div><div class="s-box"><div class="s-label">Ratio</div><div class="s-val">' + rat + '%</div></div></div>');
+  w.document.write('<table><thead><tr><th>Date</th><th class="r">CA TTC</th><th class="r">CA HT</th><th class="r">Objectif</th><th class="r">Atteinte</th><th class="r">Achats HT</th><th class="r">Ratio</th></tr></thead><tbody>');
+  data.forEach(d => {
+    const dht = d.ca_ht || Math.round(d.ca / 1.1);
+    const dta = d.invoices.reduce((s,i) => s + i.montant, 0);
+    const datt = d.objectif > 0 ? ((d.ca / d.objectif) * 100).toFixed(1) + "%" : "-";
+    const drat = dht > 0 ? ((dta / dht) * 100).toFixed(1) + "%" : "-";
+    w.document.write('<tr><td>' + d.date + '</td><td class="r">' + fc(d.ca) + '</td><td class="r">' + fc(dht) + '</td><td class="r">' + fc(d.objectif) + '</td><td class="r">' + datt + '</td><td class="r">' + fc(dta) + '</td><td class="r">' + drat + '</td></tr>');
+  });
+  w.document.write("</tbody></table></body></html>");
+  w.document.close();
+  setTimeout(() => w.print(), 300);
+};
+
+const DashboardPage = ({ data, restoName }) => {
+  const [period, setPeriod] = useState("month");
+  const [customFrom, setCustomFrom] = useState("");
+  const [customTo, setCustomTo] = useState("");
+
+  const periodLabel = period === "week" ? "Semaine en cours" : period === "month" ? "Mois en cours" : period === "quarter" ? "Trimestre en cours" : "Période personnalisée";
+
+  const filteredData = useMemo(() => {
+    const now = new Date();
+    if (period === "week") {
+      const dow = (now.getDay() + 6) % 7;
+      const ws = new Date(now); ws.setDate(now.getDate() - dow); ws.setHours(0,0,0,0);
+      return data.filter(d => new Date(d.date + "T00:00:00") >= ws);
+    }
+    if (period === "month") {
+      return data.filter(d => { const dt = new Date(d.date + "T00:00:00"); return dt.getFullYear() === now.getFullYear() && dt.getMonth() === now.getMonth(); });
+    }
+    if (period === "quarter") {
+      const qm = Math.floor(now.getMonth() / 3) * 3;
+      const qs = new Date(now.getFullYear(), qm, 1);
+      return data.filter(d => { const dt = new Date(d.date + "T00:00:00"); return dt >= qs; });
+    }
+    if (period === "custom" && customFrom && customTo) {
+      return data.filter(d => d.date >= customFrom && d.date <= customTo);
+    }
+    return data.filter(d => { const dt = new Date(d.date + "T00:00:00"); return dt.getFullYear() === now.getFullYear() && dt.getMonth() === now.getMonth(); });
+  }, [data, period, customFrom, customTo]);
+
+  const todayData = data.find(d => d.date === today());
   const latest = todayData || { date: today(), ca: 0, ca_ht: 0, objectif: 0, invoices: [] };
+
   const stats = useMemo(() => {
-    if (!latest) return null;
     const totalAchats = latest.invoices.reduce((s, i) => s + i.montant, 0);
     const ht = latest.ca_ht || Math.round(latest.ca / 1.1);
     const ratio = ht > 0 ? (totalAchats / ht) * 100 : 0;
     const ecart = latest.ca - latest.objectif;
     const atteinte = latest.objectif > 0 ? (latest.ca / latest.objectif) * 100 : 0;
-    const now = new Date();
-    const dow = (now.getDay() + 6) % 7;
-    const weekStart = new Date(now); weekStart.setDate(now.getDate() - dow); weekStart.setHours(0,0,0,0);
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const weekData = data.filter((d) => new Date(d.date + "T00:00:00") >= weekStart);
-    const monthData = data.filter((d) => { const dt = new Date(d.date + "T00:00:00"); return dt.getFullYear() === now.getFullYear() && dt.getMonth() === now.getMonth(); });
-    const caW = weekData.reduce((s, d) => s + d.ca, 0);
-    const caWHt = weekData.reduce((s, d) => s + (d.ca_ht || Math.round(d.ca / 1.1)), 0);
-    const caM = monthData.reduce((s, d) => s + d.ca, 0);
-    const caMHt = monthData.reduce((s, d) => s + (d.ca_ht || Math.round(d.ca / 1.1)), 0);
-    const taM = monthData.reduce((s, d) => s + d.invoices.reduce((a, i) => a + i.montant, 0), 0);
-    const ratioM = caMHt > 0 ? (taM / caMHt) * 100 : 0;
-    const avgAtteinte = (arr) => { if (!arr.length) return 0; return arr.reduce((s, d) => s + (d.objectif > 0 ? (d.ca / d.objectif) * 100 : 0), 0) / arr.length; };
-    return { ca: latest.ca, ca_ht: ht, objectif: latest.objectif, totalAchats, ratio, ecart, atteinte, caW, caWHt, caM, caMHt, taM, ratioM, monthAtteinte: avgAtteinte(monthData) };
-  }, [data, latest]);
-  const chartData = useMemo(() => data.slice(-14).map((d) => { const ta = d.invoices.reduce((s, i) => s + i.montant, 0); const ht = d.ca_ht || Math.round(d.ca / 1.1); return { date: formatDateFR(d.date), "CA TTC": d.ca, "CA HT": ht, Objectif: d.objectif, Achats: ta, "Ratio (%)": ht > 0 ? parseFloat(((ta / ht) * 100).toFixed(1)) : 0 }; }), [data]);
-  const categoryData = useMemo(() => { const last7 = data.slice(-7); const cats = {}; last7.forEach((d) => d.invoices.forEach((i) => { cats[i.categorie] = (cats[i.categorie] || 0) + i.montant; })); return Object.entries(cats).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value); }, [data]);
-  if (!stats) return <div className="content-area"><p>Aucune donnée disponible.</p></div>;
+    const caP = filteredData.reduce((s, d) => s + d.ca, 0);
+    const caPHt = filteredData.reduce((s, d) => s + (d.ca_ht || Math.round(d.ca / 1.1)), 0);
+    const taP = filteredData.reduce((s, d) => s + d.invoices.reduce((a, i) => a + i.montant, 0), 0);
+    const ratioP = caPHt > 0 ? (taP / caPHt) * 100 : 0;
+    const avgAtteinte = filteredData.length > 0 ? filteredData.reduce((s, d) => s + (d.objectif > 0 ? (d.ca / d.objectif) * 100 : 0), 0) / filteredData.length : 0;
+    return { ca: latest.ca, ca_ht: ht, objectif: latest.objectif, totalAchats, ratio, ecart, atteinte, caP, caPHt, taP, ratioP, avgAtteinte };
+  }, [data, latest, filteredData]);
+
+  const chartData = useMemo(() => filteredData.slice(-30).map(d => {
+    const ta = d.invoices.reduce((s, i) => s + i.montant, 0);
+    const dht = d.ca_ht || Math.round(d.ca / 1.1);
+    return { date: formatDateFR(d.date), "CA TTC": d.ca, "CA HT": dht, Objectif: d.objectif, Achats: ta, "Ratio (%)": dht > 0 ? parseFloat(((ta / dht) * 100).toFixed(1)) : 0 };
+  }), [filteredData]);
+
+  const monthlyRatioData = useMemo(() => {
+    const months = {};
+    data.forEach(d => {
+      const m = d.date.substring(0, 7);
+      if (!months[m]) months[m] = { ht: 0, ta: 0 };
+      months[m].ht += d.ca_ht || Math.round(d.ca / 1.1);
+      months[m].ta += d.invoices.reduce((s, i) => s + i.montant, 0);
+    });
+    return Object.entries(months).sort((a, b) => a[0].localeCompare(b[0])).slice(-12).map(([m, v]) => {
+      const [y, mo] = m.split("-");
+      const label = ["Jan","Fév","Mar","Avr","Mai","Jun","Jul","Aoû","Sep","Oct","Nov","Déc"][parseInt(mo) - 1] + " " + y.slice(2);
+      return { mois: label, "Ratio (%)": v.ht > 0 ? parseFloat(((v.ta / v.ht) * 100).toFixed(1)) : 0, "CA HT": v.ht, "Achats HT": v.ta };
+    });
+  }, [data]);
+
+  const categoryData = useMemo(() => {
+    const cats = {};
+    filteredData.forEach(d => d.invoices.forEach(i => { cats[i.categorie] = (cats[i.categorie] || 0) + i.montant; }));
+    return Object.entries(cats).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
+  }, [filteredData]);
+
+  const periodBtnStyle = (p) => ({
+    padding: "6px 14px", borderRadius: 6, border: period === p ? "none" : "1px solid var(--border)",
+    background: period === p ? "var(--accent)" : "var(--bg-card)", color: period === p ? "#fff" : "var(--text-secondary)",
+    fontSize: 13, fontWeight: 500, cursor: "pointer", transition: "all 0.15s"
+  });
+
   return (
     <div className="content-area">
-      {stats.ratioM > RATIO_ALERT_THRESHOLD && (<div className="alert-banner warning"><Icon name="alert" size={20} /><div><strong>Ratio matières mensuel trop élevé !</strong><div style={{ fontSize: 13, marginTop: 2 }}>Ratio mensuel : {formatPct(stats.ratioM)} — seuil de {RATIO_ALERT_THRESHOLD}% dépassé. Achats HT : {formatCurrency(stats.taM)} / CA HT : {formatCurrency(stats.caMHt)}.</div></div></div>)}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12, marginBottom: 20 }}>
+        <div style={{ display: "flex", gap: 6 }}>
+          <button style={periodBtnStyle("week")} onClick={() => setPeriod("week")}>Semaine</button>
+          <button style={periodBtnStyle("month")} onClick={() => setPeriod("month")}>Mois</button>
+          <button style={periodBtnStyle("quarter")} onClick={() => setPeriod("quarter")}>Trimestre</button>
+          <button style={periodBtnStyle("custom")} onClick={() => setPeriod("custom")}>Personnalisé</button>
+        </div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button className="btn btn-secondary btn-sm" onClick={() => exportCSV(filteredData, restoName)}><Icon name="download" size={14} /> CSV</button>
+          <button className="btn btn-secondary btn-sm" onClick={() => exportPDF(filteredData, restoName, periodLabel)}><Icon name="download" size={14} /> PDF</button>
+        </div>
+      </div>
+      {period === "custom" && (
+        <div style={{ display: "flex", gap: 12, marginBottom: 16, alignItems: "center" }}>
+          <input type="date" className="form-input" style={{ width: "auto" }} value={customFrom} onChange={e => setCustomFrom(e.target.value)} />
+          <span style={{ color: "var(--text-muted)" }}>→</span>
+          <input type="date" className="form-input" style={{ width: "auto" }} value={customTo} onChange={e => setCustomTo(e.target.value)} />
+          <span style={{ fontSize: 13, color: "var(--text-muted)" }}>{filteredData.length} jours</span>
+        </div>
+      )}
+      {stats.ratioP > RATIO_ALERT_THRESHOLD && (<div className="alert-banner warning"><Icon name="alert" size={20} /><div><strong>Ratio matières trop élevé !</strong><div style={{ fontSize: 13, marginTop: 2 }}>Ratio période : {formatPct(stats.ratioP)} — seuil de {RATIO_ALERT_THRESHOLD}% dépassé. Achats HT : {formatCurrency(stats.taP)} / CA HT : {formatCurrency(stats.caPHt)}.</div></div></div>)}
       <div className="kpi-grid" style={{ gridTemplateColumns: "repeat(3, 1fr)" }}>
         <div className="kpi-card green"><div className="kpi-label">CA du jour (TTC)</div><div className="kpi-value green">{formatCurrency(stats.ca)}</div><div className="kpi-sub">HT : {formatCurrency(stats.ca_ht)} · Obj : {formatCurrency(stats.objectif)}</div></div>
-        <div className="kpi-card blue"><div className="kpi-label">CA hebdomadaire (TTC)</div><div className="kpi-value blue">{formatCurrency(stats.caW)}</div><div className="kpi-sub">HT : {formatCurrency(stats.caWHt)}</div></div>
-        <div className="kpi-card green"><div className="kpi-label">CA mensuel (TTC)</div><div className="kpi-value green">{formatCurrency(stats.caM)}</div><div className="kpi-sub">HT : {formatCurrency(stats.caMHt)}</div></div>
-        <div className={"kpi-card " + (stats.ratioM > RATIO_ALERT_THRESHOLD ? "red" : "gold")}><div className="kpi-label">Ratio matières mensuel (HT/HT)</div><div className={"kpi-value " + (stats.ratioM > RATIO_ALERT_THRESHOLD ? "red" : "gold")}>{formatPct(stats.ratioM)}</div><div className="kpi-sub">Achats HT : {formatCurrency(stats.taM)} / CA HT : {formatCurrency(stats.caMHt)}</div></div>
+        <div className="kpi-card blue"><div className="kpi-label">CA période (TTC)</div><div className="kpi-value blue">{formatCurrency(stats.caP)}</div><div className="kpi-sub">HT : {formatCurrency(stats.caPHt)} · {filteredData.length} jours</div></div>
+        <div className={"kpi-card " + (stats.ratioP > RATIO_ALERT_THRESHOLD ? "red" : "gold")}><div className="kpi-label">Ratio matières période</div><div className={"kpi-value " + (stats.ratioP > RATIO_ALERT_THRESHOLD ? "red" : "gold")}>{formatPct(stats.ratioP)}</div><div className="kpi-sub">Achats : {formatCurrency(stats.taP)}</div></div>
         <div className={"kpi-card " + (stats.atteinte >= 100 ? "green" : "blue")}><div className="kpi-label">Atteinte objectif du jour</div><div className={"kpi-value " + (stats.atteinte >= 100 ? "green" : "blue")}>{formatPct(stats.atteinte)}</div><div className="kpi-sub">Écart : {stats.ecart >= 0 ? "+" : ""}{formatCurrency(stats.ecart)}</div></div>
-        <div className="kpi-card gold"><div className="kpi-label">Moy. mensuelle objectif</div><div className={"kpi-value " + (stats.monthAtteinte >= 100 ? "green" : "gold")}>{formatPct(stats.monthAtteinte)}</div><div className="kpi-sub">Sur les 30 derniers jours</div></div>
+        <div className="kpi-card gold"><div className="kpi-label">Moy. atteinte période</div><div className={"kpi-value " + (stats.avgAtteinte >= 100 ? "green" : "gold")}>{formatPct(stats.avgAtteinte)}</div><div className="kpi-sub">{periodLabel}</div></div>
+        <div className="kpi-card purple"><div className="kpi-label">Achats HT période</div><div className="kpi-value purple">{formatCurrency(stats.taP)}</div><div className="kpi-sub">vs CA HT : {formatCurrency(stats.caPHt)}</div></div>
       </div>
       <div className="grid-2">
-        <div className="card"><div className="card-header"><div><div className="card-title">Évolution CA vs Objectif</div><div className="card-subtitle">14 derniers jours</div></div></div><div style={{ height: 280 }}><ResponsiveContainer width="100%" height="100%"><AreaChart data={chartData}><defs><linearGradient id="gradCA" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#4ADE80" stopOpacity={0.2} /><stop offset="95%" stopColor="#4ADE80" stopOpacity={0} /></linearGradient></defs><CartesianGrid strokeDasharray="3 3" stroke="#2C2C30" /><XAxis dataKey="date" tick={{ fill: "#63636B", fontSize: 11 }} /><YAxis tick={{ fill: "#63636B", fontSize: 11 }} /><Tooltip content={<CustomTooltip />} /><Area type="monotone" dataKey="CA TTC" stroke="#4ADE80" fill="url(#gradCA)" strokeWidth={2} name="CA TTC" /><Line type="monotone" dataKey="Objectif" stroke="#FBBF24" strokeWidth={2} strokeDasharray="6 3" dot={false} name="Objectif" /></AreaChart></ResponsiveContainer></div></div>
-        <div className="card"><div className="card-header"><div><div className="card-title">Évolution du Ratio</div><div className="card-subtitle">Seuil : {RATIO_ALERT_THRESHOLD}%</div></div></div><div style={{ height: 280 }}><ResponsiveContainer width="100%" height="100%"><AreaChart data={chartData}><defs><linearGradient id="gradRatio" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#FBBF24" stopOpacity={0.2} /><stop offset="95%" stopColor="#FBBF24" stopOpacity={0} /></linearGradient></defs><CartesianGrid strokeDasharray="3 3" stroke="#2C2C30" /><XAxis dataKey="date" tick={{ fill: "#63636B", fontSize: 11 }} /><YAxis tick={{ fill: "#63636B", fontSize: 11 }} domain={[0, 45]} /><Tooltip content={<CustomTooltip />} /><Area type="monotone" dataKey="Ratio (%)" stroke="#FBBF24" fill="url(#gradRatio)" strokeWidth={2} /><Line type="monotone" dataKey={() => RATIO_ALERT_THRESHOLD} stroke="#F87171" strokeWidth={1.5} strokeDasharray="4 4" dot={false} name="Seuil" /></AreaChart></ResponsiveContainer></div></div>
+        <div className="card"><div className="card-header"><div><div className="card-title">Évolution CA vs Objectif</div><div className="card-subtitle">{periodLabel}</div></div></div><div style={{ height: 280 }}><ResponsiveContainer width="100%" height="100%"><AreaChart data={chartData}><defs><linearGradient id="gradCA" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#4ADE80" stopOpacity={0.2} /><stop offset="95%" stopColor="#4ADE80" stopOpacity={0} /></linearGradient></defs><CartesianGrid strokeDasharray="3 3" stroke="#2C2C30" /><XAxis dataKey="date" tick={{ fill: "#63636B", fontSize: 11 }} /><YAxis tick={{ fill: "#63636B", fontSize: 11 }} /><Tooltip content={<CustomTooltip />} /><Area type="monotone" dataKey="CA TTC" stroke="#4ADE80" fill="url(#gradCA)" strokeWidth={2} name="CA TTC" /><Line type="monotone" dataKey="Objectif" stroke="#FBBF24" strokeWidth={2} strokeDasharray="6 3" dot={false} name="Objectif" /></AreaChart></ResponsiveContainer></div></div>
+        <div className="card"><div className="card-header"><div><div className="card-title">Évolution du Ratio (période)</div><div className="card-subtitle">Seuil : {RATIO_ALERT_THRESHOLD}%</div></div></div><div style={{ height: 280 }}><ResponsiveContainer width="100%" height="100%"><AreaChart data={chartData}><defs><linearGradient id="gradRatio" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#FBBF24" stopOpacity={0.2} /><stop offset="95%" stopColor="#FBBF24" stopOpacity={0} /></linearGradient></defs><CartesianGrid strokeDasharray="3 3" stroke="#2C2C30" /><XAxis dataKey="date" tick={{ fill: "#63636B", fontSize: 11 }} /><YAxis tick={{ fill: "#63636B", fontSize: 11 }} domain={[0, 45]} /><Tooltip content={<CustomTooltip />} /><Area type="monotone" dataKey="Ratio (%)" stroke="#FBBF24" fill="url(#gradRatio)" strokeWidth={2} /><Line type="monotone" dataKey={() => RATIO_ALERT_THRESHOLD} stroke="#F87171" strokeWidth={1.5} strokeDasharray="4 4" dot={false} name="Seuil" /></AreaChart></ResponsiveContainer></div></div>
       </div>
+      <div className="card" style={{ marginBottom: 24 }}><div className="card-header"><div><div className="card-title">Évolution du Ratio — Tendance mensuelle</div><div className="card-subtitle">12 derniers mois</div></div></div><div style={{ height: 300 }}><ResponsiveContainer width="100%" height="100%"><ComposedChart data={monthlyRatioData}><CartesianGrid strokeDasharray="3 3" stroke="#2C2C30" /><XAxis dataKey="mois" tick={{ fill: "#63636B", fontSize: 11 }} /><YAxis tick={{ fill: "#63636B", fontSize: 11 }} domain={[0, 45]} /><Tooltip content={<CustomTooltip />} /><Bar dataKey="Ratio (%)" radius={[4, 4, 0, 0]}>{monthlyRatioData.map((entry, i) => (<Cell key={i} fill={entry["Ratio (%)"] > RATIO_ALERT_THRESHOLD ? "#F87171" : "#4ADE80"} opacity={0.85} />))}</Bar><ReferenceLine y={RATIO_ALERT_THRESHOLD} stroke="#F87171" strokeWidth={1.5} strokeDasharray="4 4" label={{ value: "Seuil " + RATIO_ALERT_THRESHOLD + "%", position: "right", fill: "#F87171", fontSize: 11 }} /></ComposedChart></ResponsiveContainer></div></div>
       <div className="grid-2">
-        <div className="card"><div className="card-header"><div><div className="card-title">Achats HT vs CA HT</div><div className="card-subtitle">14 derniers jours</div></div></div><div style={{ height: 260 }}><ResponsiveContainer width="100%" height="100%"><BarChart data={chartData}><CartesianGrid strokeDasharray="3 3" stroke="#2C2C30" /><XAxis dataKey="date" tick={{ fill: "#63636B", fontSize: 11 }} /><YAxis tick={{ fill: "#63636B", fontSize: 11 }} /><Tooltip content={<CustomTooltip />} /><Bar dataKey="CA HT" fill="#4ADE80" radius={[4, 4, 0, 0]} opacity={0.8} name="CA HT" /><Bar dataKey="Achats" fill="#F87171" radius={[4, 4, 0, 0]} opacity={0.8} /></BarChart></ResponsiveContainer></div></div>
-        <div className="card"><div className="card-header"><div><div className="card-title">Répartition des Achats</div><div className="card-subtitle">7 derniers jours</div></div></div><div style={{ height: 260, display: "flex", alignItems: "center" }}><ResponsiveContainer width="50%" height="100%"><PieChart><Pie data={categoryData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={50} outerRadius={85} paddingAngle={3}>{categoryData.map((entry) => (<Cell key={entry.name} fill={CATEGORY_COLORS[entry.name] || "#94A3B8"} />))}</Pie><Tooltip content={<CustomTooltip />} /></PieChart></ResponsiveContainer><div style={{ flex: 1, paddingLeft: 8 }}>{categoryData.slice(0, 6).map((c) => (<div key={c.name} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, fontSize: 13 }}><div style={{ width: 10, height: 10, borderRadius: 3, background: CATEGORY_COLORS[c.name] || "#94A3B8" }} /><span style={{ color: "var(--text-secondary)", flex: 1 }}>{c.name}</span><span style={{ fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>{formatCurrency(c.value)}</span></div>))}</div></div></div>
+        <div className="card"><div className="card-header"><div><div className="card-title">Achats HT vs CA HT</div><div className="card-subtitle">{periodLabel}</div></div></div><div style={{ height: 260 }}><ResponsiveContainer width="100%" height="100%"><BarChart data={chartData}><CartesianGrid strokeDasharray="3 3" stroke="#2C2C30" /><XAxis dataKey="date" tick={{ fill: "#63636B", fontSize: 11 }} /><YAxis tick={{ fill: "#63636B", fontSize: 11 }} /><Tooltip content={<CustomTooltip />} /><Bar dataKey="CA HT" fill="#4ADE80" radius={[4, 4, 0, 0]} opacity={0.8} name="CA HT" /><Bar dataKey="Achats" fill="#F87171" radius={[4, 4, 0, 0]} opacity={0.8} /></BarChart></ResponsiveContainer></div></div>
+        <div className="card"><div className="card-header"><div><div className="card-title">Répartition des Achats</div><div className="card-subtitle">{periodLabel}</div></div></div><div style={{ height: 260, display: "flex", alignItems: "center" }}><ResponsiveContainer width="50%" height="100%"><PieChart><Pie data={categoryData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={50} outerRadius={85} paddingAngle={3}>{categoryData.map((entry) => (<Cell key={entry.name} fill={CATEGORY_COLORS[entry.name] || "#94A3B8"} />))}</Pie><Tooltip content={<CustomTooltip />} /></PieChart></ResponsiveContainer><div style={{ flex: 1, paddingLeft: 8 }}>{categoryData.slice(0, 6).map((c) => (<div key={c.name} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, fontSize: 13 }}><div style={{ width: 10, height: 10, borderRadius: 3, background: CATEGORY_COLORS[c.name] || "#94A3B8" }} /><span style={{ color: "var(--text-secondary)", flex: 1 }}>{c.name}</span><span style={{ fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>{formatCurrency(c.value)}</span></div>))}</div></div></div>
       </div>
     </div>
   );
@@ -887,7 +998,7 @@ export default function App() {
       </aside>
       <main className="main-content">
         <div className="top-bar"><div className="top-bar-left"><button className="burger" onClick={() => setSidebarOpen(true)}><Icon name="menu" size={22} /></button><div><div className="page-title">{pageTitles[page]}</div><div className="page-date">{formatDateFull(today())}</div></div></div><div className="top-bar-right"><RestoPicker restaurants={restaurants} current={currentRestoId} setCurrent={setCurrentRestoId} isAdmin={isAdmin} /><button className="btn btn-sm btn-primary" onClick={() => setPage("input")}><Icon name="plus" size={14} color="var(--bg-primary)" /> Saisie</button></div></div>
-        {page === "dashboard" && <DashboardPage data={currentData} />}
+        {page === "dashboard" && <DashboardPage data={currentData} restoName={currentResto?.name || "RestoPilot"} />}
         {page === "input" && <InputPage data={currentData} setData={setCurrentData} addToast={addToast} isAdmin={isAdmin} restoObjectives={currentResto?.objectives} restoOverrides={currentResto?.dateOverrides} />}
         {page === "history" && <HistoryPage data={currentData} />}
         {page === "alerts" && <AlertsPage data={currentData} addToast={addToast} />}
