@@ -194,12 +194,12 @@ const CSS = `
     --accent-dim: #15704A;
     --accent-bg: rgba(26,140,91,0.07);
     --accent-bg-strong: rgba(26,140,91,0.12);
-    --gold: #C55A11;
-    --gold-dim: #A34A0E;
-    --gold-bg: rgba(197,90,17,0.07);
-    --red: #C55A11;
-    --red-dim: #A34A0E;
-    --red-bg: rgba(197,90,17,0.06);
+    --gold: #D9536B;
+    --gold-dim: #C44860;
+    --gold-bg: rgba(217,83,107,0.07);
+    --red: #D9536B;
+    --red-dim: #C44860;
+    --red-bg: rgba(217,83,107,0.06);
     --blue: #1B2A4A;
     --blue-bg: rgba(27,42,74,0.06);
     --purple: #1B2A4A;
@@ -211,13 +211,25 @@ const CSS = `
     --shadow-lg: 0 4px 20px rgba(27,42,74,0.10);
   }
   [data-theme="light"] .sidebar {
-    background: #FFFFFF;
-    border-right: 1px solid #E2E8F0;
+    background: #1B2A4A;
+    border-right: none;
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
   }
-  [data-theme="light"] .sidebar-logo { color: #1B2A4A; font-weight: 700; }
-  [data-theme="light"] .sidebar-subtitle { color: #94A3B8; }
+  [data-theme="light"] .sidebar-logo { color: #FFFFFF; font-weight: 700; }
+  [data-theme="light"] .sidebar-subtitle { color: rgba(255,255,255,0.5); }
+  [data-theme="light"] .sidebar-header { border-bottom-color: rgba(255,255,255,0.08); }
+  [data-theme="light"] .sidebar-footer { border-top-color: rgba(255,255,255,0.08); }
+  [data-theme="light"] .nav-item { border-radius: 6px; color: rgba(255,255,255,0.7); }
+  [data-theme="light"] .nav-item svg { stroke: rgba(255,255,255,0.5); }
+  [data-theme="light"] .nav-item:hover { background: rgba(255,255,255,0.08); color: #FFFFFF; }
+  [data-theme="light"] .nav-item:hover svg { stroke: rgba(255,255,255,0.8); }
+  [data-theme="light"] .nav-item.active { background: rgba(255,255,255,0.12); color: #FFFFFF; border-color: transparent; }
+  [data-theme="light"] .nav-item.active svg { stroke: #FFFFFF; }
+  [data-theme="light"] .user-badge { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; }
+  [data-theme="light"] .user-avatar { background: rgba(255,255,255,0.15); color: #FFFFFF; }
+  [data-theme="light"] .user-name { color: #FFFFFF; }
+  [data-theme="light"] .user-role { color: rgba(255,255,255,0.5); }
   [data-theme="light"] .top-bar {
     background: #1B2A4A;
     border-bottom: none;
@@ -234,17 +246,13 @@ const CSS = `
   [data-theme="light"] .resto-picker-btn { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; color: #FFFFFF; }
   [data-theme="light"] .resto-picker-btn:hover { background: rgba(255,255,255,0.18); border-color: rgba(255,255,255,0.25); }
   [data-theme="light"] .resto-dropdown { background: #fff; border: 1px solid #E2E8F0; border-radius: 8px; box-shadow: 0 8px 30px rgba(27,42,74,0.15); }
-  [data-theme="light"] .nav-item { border-radius: 6px; color: #475569; }
-  [data-theme="light"] .nav-item:hover { background: #F1F5F9; color: #1B2A4A; }
-  [data-theme="light"] .nav-item.active { background: rgba(27,42,74,0.08); color: #1B2A4A; border-color: transparent; }
-  [data-theme="light"] .nav-item.active svg { stroke: #1B2A4A; }
   [data-theme="light"] .kpi-card { background: #fff; border: 1px solid #E2E8F0; box-shadow: 0 1px 3px rgba(27,42,74,0.04); border-radius: 8px; }
   [data-theme="light"] .kpi-card:hover { border-color: #CBD5E1; box-shadow: 0 2px 8px rgba(27,42,74,0.07); transform: none; }
   [data-theme="light"] .kpi-card::before { border-radius: 8px 8px 0 0; }
   [data-theme="light"] .kpi-value.green { color: #1A8C5B; }
   [data-theme="light"] .kpi-value.blue { color: #1B2A4A; }
-  [data-theme="light"] .kpi-value.gold { color: #C55A11; }
-  [data-theme="light"] .kpi-value.red { color: #C55A11; }
+  [data-theme="light"] .kpi-value.gold { color: #D9536B; }
+  [data-theme="light"] .kpi-value.red { color: #D9536B; }
   [data-theme="light"] .kpi-value.purple { color: #1B2A4A; }
   [data-theme="light"] .card { background: #fff; border: 1px solid #E2E8F0; box-shadow: 0 1px 3px rgba(27,42,74,0.04); border-radius: 8px; }
   [data-theme="light"] .card-title { color: #1B2A4A; }
@@ -255,12 +263,9 @@ const CSS = `
   [data-theme="light"] .btn-primary:hover { background: #2C3E5A; }
   [data-theme="light"] .btn-secondary { background: #fff; border: 1px solid #CBD5E1; color: #1B2A4A; }
   [data-theme="light"] .btn-secondary:hover { background: #F1F5F9; border-color: #94A3B8; }
-  [data-theme="light"] .user-badge { background: #F1F5F9; border: 1px solid #E2E8F0; border-radius: 8px; }
-  [data-theme="light"] .user-avatar { background: rgba(27,42,74,0.10); color: #1B2A4A; }
-  [data-theme="light"] .user-name { color: #1B2A4A; }
   [data-theme="light"] .toast { border-radius: 8px; }
   [data-theme="light"] .toast.success { background: #1A8C5B; color: #fff; border: none; }
-  [data-theme="light"] .toast.error { background: #C55A11; color: #fff; border: none; }
+  [data-theme="light"] .toast.error { background: #D9536B; color: #fff; border: none; }
   [data-theme="light"] .toast.info { background: #1B2A4A; color: #fff; border: none; }
   [data-theme="light"] .login-page { background: #1B2A4A; }
   [data-theme="light"] .login-page::before { background: radial-gradient(circle at 60% 30%, rgba(27,42,74,0.15), transparent 60%); }
@@ -278,9 +283,9 @@ const CSS = `
   [data-theme="light"] .invoice-item:hover { background: #F8FAFB; border-color: #CBD5E1; }
   [data-theme="light"] .badge { border-radius: 4px; }
   [data-theme="light"] .badge-green { background: rgba(26,140,91,0.10); color: #1A8C5B; }
-  [data-theme="light"] .badge-gold { background: rgba(197,90,17,0.10); color: #C55A11; }
-  [data-theme="light"] .badge-red { background: rgba(197,90,17,0.08); color: #C55A11; }
-  [data-theme="light"] .alert-banner.warning { background: rgba(197,90,17,0.05); border-color: rgba(197,90,17,0.15); }
+  [data-theme="light"] .badge-gold { background: rgba(217,83,107,0.10); color: #D9536B; }
+  [data-theme="light"] .badge-red { background: rgba(217,83,107,0.08); color: #D9536B; }
+  [data-theme="light"] .alert-banner.warning { background: rgba(217,83,107,0.05); border-color: rgba(217,83,107,0.15); }
   [data-theme="light"] ::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 3px; }
   [data-theme="light"] .remember-row { color: #475569; }
 
