@@ -17,7 +17,7 @@ export default async function handler(req, res) {
     let offset = 0;
 
     while (true) {
-      const url = `${ZELTY_API_URL}?from=${date}T00:00:00&to=${date}T23:59:59&limit=200&offset=${offset}`;
+      const url = `${ZELTY_API_URL}?noz=${date}&limit=200&offset=${offset}`;
       const resp = await fetch(url, {
         headers: { Authorization: `Bearer ${ZELTY_API_KEY}` },
       });
