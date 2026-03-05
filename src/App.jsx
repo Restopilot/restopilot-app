@@ -611,40 +611,13 @@ const DashboardPage = ({ data, restoName }) => {
         </div>
       )}
       {stats.ratioP > RATIO_ALERT_THRESHOLD && (<div className="alert-banner warning"><Icon name="alert" size={20} /><div><strong>Ratio matières trop élevé !</strong><div style={{ fontSize: 13, marginTop: 2 }}>Ratio période : {formatPct(stats.ratioP)} — seuil de {RATIO_ALERT_THRESHOLD}% dépassé. Achats HT : {formatCurrency(stats.taP)} / CA HT : {formatCurrency(stats.caPHt)}.</div></div></div>)}
-      {(() => {
-        const liveCA = zeltyLive ? zeltyLive.ca_ttc : stats.ca;
-        const liveHT = zeltyLive ? zeltyLive.ca_ht : stats.ca_ht;
-        const obj = stats.objectif;
-        const ecart = liveCA - obj;
-        const isAbove = ecart >= 0;
-        return (
-          <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: "24px 28px", marginBottom: 20, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 16 }}>
-            <div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                <span style={{ fontSize: 13, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.5px" }}>CA du jour</span>
-                {zeltyLive && <span style={{ fontSize: 9, background: "var(--accent)", color: "#fff", padding: "2px 8px", borderRadius: 4 }}>Zelty live · {zeltyLive.orders_count} cmd</span>}
-              </div>
-              <div style={{ fontSize: 36, fontWeight: 700, color: "var(--accent)", lineHeight: 1.1 }}>{formatCurrency(liveCA)}</div>
-              <div style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 4 }}>HT : {formatCurrency(liveHT)}</div>
-            </div>
-            <div style={{ textAlign: "center" }}>
-              <div style={{ fontSize: 12, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 4 }}>Objectif</div>
-              <div style={{ fontSize: 24, fontWeight: 600, color: "var(--text-primary)" }}>{formatCurrency(obj)}</div>
-            </div>
-            <div style={{ textAlign: "right" }}>
-              <div style={{ fontSize: 12, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 4 }}>Écart</div>
-              <div style={{ fontSize: 28, fontWeight: 700, color: isAbove ? "var(--accent)" : "var(--red)" }}>
-                {isAbove ? "+" : ""}{formatCurrency(ecart)}
-              </div>
-              {obj > 0 && <div style={{ fontSize: 13, marginTop: 2 }}>{isAbove ? "🚀" : "⚠️"} {isAbove ? "Au-dessus" : "En-dessous"} de l'objectif</div>}
-            </div>
-          </div>
-        );
-      })()}
       <div className="kpi-grid" style={{ gridTemplateColumns: "repeat(3, 1fr)" }}>
+        <div className="kpi-card green"><div className="kpi-label" style={{ display: "flex", alignItems: "center", gap: 6 }}>CA du jour (TTC){zeltyLive && <span style={{ fontSize: 9, background: "var(--accent)", color: "#fff", padding: "1px 6px", borderRadius: 4, textTransform: "none", letterSpacing: 0 }}>Zelty live</span>}</div><div className="kpi-value green">{formatCurrency(zeltyLive ? zeltyLive.ca_ttc : stats.ca)}</div><div className="kpi-sub">HT : {formatCurrency(zeltyLive ? zeltyLive.ca_ht : stats.ca_ht)} · Obj : {formatCurrency(stats.objectif)}</div></div>
         <div className="kpi-card blue"><div className="kpi-label">CA période (TTC)</div><div className="kpi-value blue">{formatCurrency(stats.caP)}</div><div className="kpi-sub">HT : {formatCurrency(stats.caPHt)} · {filteredData.length} jours</div></div>
         <div className={"kpi-card " + (stats.ratioP > RATIO_ALERT_THRESHOLD ? "red" : "gold")}><div className="kpi-label">Ratio matières période</div><div className={"kpi-value " + (stats.ratioP > RATIO_ALERT_THRESHOLD ? "red" : "gold")}>{formatPct(stats.ratioP)}</div><div className="kpi-sub">Achats : {formatCurrency(stats.taP)}</div></div>
-        <div className={"kpi-card " + (stats.atteinte >= 100 ? "green" : "blue")}><div className="kpi-label">Atteinte objectif du jour</div><div className={"kpi-value " + (stats.atteinte >= 100 ? "green" : "blue")}>{formatPct(zeltyLive && stats.objectif > 0 ? ((zeltyLive.ca_ttc / stats.objectif) * 100) : stats.atteinte)}</div><div className="kpi-sub">Période : {formatPct(stats.avgAtteinte)}</div></div>
+        <div className={"kpi-card " + ((() => { const e = (zeltyLive ? zeltyLive.ca_ttc : stats.ca) - stats.objectif; return e >= 0 ? "green" : "red"; })())}><div className="kpi-label">Écart objectif du jour</div><div className={"kpi-value " + ((() => { const e = (zeltyLive ? zeltyLive.ca_ttc : stats.ca) - stats.objectif; return e >= 0 ? "green" : "red"; })())}>{(() => { const e = (zeltyLive ? zeltyLive.ca_ttc : stats.ca) - stats.objectif; return (e >= 0 ? "+" : "") + formatCurrency(e); })()}</div><div className="kpi-sub">{(() => { const e = (zeltyLive ? zeltyLive.ca_ttc : stats.ca) - stats.objectif; return e >= 0 ? "🚀 Au-dessus de l'objectif" : "⚠️ En-dessous de l'objectif"; })()}</div></div>
+        <div className={"kpi-card " + (stats.avgAtteinte >= 100 ? "green" : "gold")}><div className="kpi-label">Moy. atteinte période</div><div className={"kpi-value " + (stats.avgAtteinte >= 100 ? "green" : "gold")}>{formatPct(stats.avgAtteinte)}</div><div className="kpi-sub">{periodLabel}</div></div>
+        <div className="kpi-card purple"><div className="kpi-label">Achats HT période</div><div className="kpi-value purple">{formatCurrency(stats.taP)}</div><div className="kpi-sub">vs CA HT : {formatCurrency(stats.caPHt)}</div></div>
       </div>
       <div className="grid-2">
         <div className="card"><div className="card-header"><div><div className="card-title">Évolution CA vs Objectif</div><div className="card-subtitle">{periodLabel}</div></div></div><div style={{ height: 280 }}><ResponsiveContainer width="100%" height="100%"><AreaChart data={chartData}><defs><linearGradient id="gradCA" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#1A8C5B" stopOpacity={0.2} /><stop offset="95%" stopColor="#1A8C5B" stopOpacity={0} /></linearGradient></defs><CartesianGrid strokeDasharray="3 3" stroke="#2C2C30" /><XAxis dataKey="date" tick={{ fill: "#63636B", fontSize: 11 }} /><YAxis tick={{ fill: "#63636B", fontSize: 11 }} /><Tooltip content={<CustomTooltip />} /><Area type="monotone" dataKey="CA TTC" stroke="#1A8C5B" fill="url(#gradCA)" strokeWidth={2} name="CA TTC" /><Line type="monotone" dataKey="Objectif" stroke="#D9536B" strokeWidth={2} strokeDasharray="6 3" dot={false} name="Objectif" /></AreaChart></ResponsiveContainer></div></div>
