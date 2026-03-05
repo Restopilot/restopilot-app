@@ -167,7 +167,7 @@ export default async function handler(req, res) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: "RestoPilot <onboarding@resend.dev>",
+        from: "RestoPilot <rapport@afrikngroup.com>",
         to: recipients.map((r) => r.email),
         subject: `Rapport CA – ${dateFR}`,
         html,
