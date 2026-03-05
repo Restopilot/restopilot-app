@@ -504,6 +504,14 @@ const DashboardPage = ({ data, restoName }) => {
   const [period, setPeriod] = useState("month");
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
+  const [zeltyLive, setZeltyLive] = useState(null);
+
+  useEffect(() => {
+    fetch("/api/zelty-ca?date=" + today())
+      .then(r => r.ok ? r.json() : null)
+      .then(z => { if (z && z.ca_ttc > 0) setZeltyLive(z); })
+      .catch(() => {});
+  }, []);
 
   const periodLabel = period === "week" ? "Semaine en cours" : period === "month" ? "Mois en cours" : period === "quarter" ? "Trimestre en cours" : "Période personnalisée";
 
@@ -529,7 +537,9 @@ const DashboardPage = ({ data, restoName }) => {
   }, [data, period, customFrom, customTo]);
 
   const todayData = data.find(d => d.date === today());
-  const latest = todayData || { date: today(), ca: 0, ca_ht: 0, objectif: 0, invoices: [] };
+  const liveCa = zeltyLive ? zeltyLive.ca_ttc : 0;
+  const liveCaHt = zeltyLive ? zeltyLive.ca_ht : 0;
+  const latest = todayData || { date: today(), ca: liveCa, ca_ht: liveCaHt, objectif: 0, invoices: [] };
 
   const stats = useMemo(() => {
     const totalAchats = latest.invoices.reduce((s, i) => s + i.montant, 0);
@@ -602,7 +612,7 @@ const DashboardPage = ({ data, restoName }) => {
       )}
       {stats.ratioP > RATIO_ALERT_THRESHOLD && (<div className="alert-banner warning"><Icon name="alert" size={20} /><div><strong>Ratio matières trop élevé !</strong><div style={{ fontSize: 13, marginTop: 2 }}>Ratio période : {formatPct(stats.ratioP)} — seuil de {RATIO_ALERT_THRESHOLD}% dépassé. Achats HT : {formatCurrency(stats.taP)} / CA HT : {formatCurrency(stats.caPHt)}.</div></div></div>)}
       <div className="kpi-grid" style={{ gridTemplateColumns: "repeat(3, 1fr)" }}>
-        <div className="kpi-card green"><div className="kpi-label">CA du jour (TTC)</div><div className="kpi-value green">{formatCurrency(stats.ca)}</div><div className="kpi-sub">HT : {formatCurrency(stats.ca_ht)} · Obj : {formatCurrency(stats.objectif)}</div></div>
+        <div className="kpi-card green"><div className="kpi-label" style={{ display: "flex", alignItems: "center", gap: 6 }}>CA du jour (TTC){zeltyLive && <span style={{ fontSize: 9, background: "var(--accent)", color: "#fff", padding: "1px 6px", borderRadius: 4, textTransform: "none", letterSpacing: 0 }}>Zelty live</span>}</div><div className="kpi-value green">{formatCurrency(zeltyLive ? zeltyLive.ca_ttc : stats.ca)}</div><div className="kpi-sub">HT : {formatCurrency(zeltyLive ? zeltyLive.ca_ht : stats.ca_ht)} · Obj : {formatCurrency(stats.objectif)}{zeltyLive ? " · " + zeltyLive.orders_count + " cmd" : ""}</div></div>
         <div className="kpi-card blue"><div className="kpi-label">CA période (TTC)</div><div className="kpi-value blue">{formatCurrency(stats.caP)}</div><div className="kpi-sub">HT : {formatCurrency(stats.caPHt)} · {filteredData.length} jours</div></div>
         <div className={"kpi-card " + (stats.ratioP > RATIO_ALERT_THRESHOLD ? "red" : "gold")}><div className="kpi-label">Ratio matières période</div><div className={"kpi-value " + (stats.ratioP > RATIO_ALERT_THRESHOLD ? "red" : "gold")}>{formatPct(stats.ratioP)}</div><div className="kpi-sub">Achats : {formatCurrency(stats.taP)}</div></div>
         <div className={"kpi-card " + (stats.atteinte >= 100 ? "green" : "blue")}><div className="kpi-label">Atteinte objectif du jour</div><div className={"kpi-value " + (stats.atteinte >= 100 ? "green" : "blue")}>{formatPct(stats.atteinte)}</div><div className="kpi-sub">Écart : {stats.ecart >= 0 ? "+" : ""}{formatCurrency(stats.ecart)}</div></div>
