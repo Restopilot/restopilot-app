@@ -631,8 +631,45 @@ const InputPage = ({ data, setData, addToast, isAdmin, restoObjectives, restoOve
   const [invoices, setInvoices] = useState(existing?.invoices || []);
   const [newInvoice, setNewInvoice] = useState({ fournisseur: "", montant: "", categorie: CATEGORIES[0] });
   const [selectedDate, setSelectedDate] = useState(todayStr);
+  const [zeltyLoading, setZeltyLoading] = useState(false);
+  const [zeltyInfo, setZeltyInfo] = useState(null);
   const getRestoObj = (ds) => { if (restoOverrides && restoOverrides[ds]) return restoOverrides[ds]; if (restoObjectives) { const dow = getDow(ds); return restoObjectives[dow] || 0; } return 0; };
-  useEffect(() => { const dayData = data.find((d) => d.date === selectedDate); setCa(dayData?.ca?.toString() || ""); setCaHt(dayData?.ca_ht?.toString() || ""); const obj = dayData?.objectif || getRestoObj(selectedDate); setObjectif(obj ? obj.toString() : ""); setInvoices(dayData?.invoices || []); }, [selectedDate, data, restoObjectives, restoOverrides]);
+  
+  const fetchZeltyCA = useCallback(async (date) => {
+    setZeltyLoading(true);
+    setZeltyInfo(null);
+    try {
+      const resp = await fetch("/api/zelty-ca?date=" + date);
+      if (!resp.ok) throw new Error("Erreur API");
+      const z = await resp.json();
+      if (z.ca_ttc > 0) {
+        setCa(z.ca_ttc.toString());
+        setCaHt(z.ca_ht.toString());
+        setZeltyInfo({ ttc: z.ca_ttc, ht: z.ca_ht, count: z.orders_count });
+        addToast("CA importé depuis Zelty : " + z.orders_count + " commandes", "success");
+      } else {
+        setZeltyInfo({ ttc: 0, ht: 0, count: 0 });
+      }
+    } catch (e) {
+      console.error("Zelty fetch error:", e);
+    }
+    setZeltyLoading(false);
+  }, [addToast]);
+
+  useEffect(() => {
+    const dayData = data.find((d) => d.date === selectedDate);
+    setCa(dayData?.ca?.toString() || "");
+    setCaHt(dayData?.ca_ht?.toString() || "");
+    const obj = dayData?.objectif || getRestoObj(selectedDate);
+    setObjectif(obj ? obj.toString() : "");
+    setInvoices(dayData?.invoices || []);
+    setZeltyInfo(null);
+    // Auto-fetch from Zelty if no CA saved yet for this date
+    if (!dayData?.ca) {
+      fetchZeltyCA(selectedDate);
+    }
+  }, [selectedDate, data, restoObjectives, restoOverrides]);
+
   const addInvoice = () => { if (!newInvoice.fournisseur || !newInvoice.montant) return; setInvoices([...invoices, { id: selectedDate + "-" + Date.now(), fournisseur: newInvoice.fournisseur, montant: parseFloat(newInvoice.montant), categorie: newInvoice.categorie, date: selectedDate }]); setNewInvoice({ fournisseur: "", montant: "", categorie: CATEGORIES[0] }); };
   const removeInvoice = (id) => setInvoices(invoices.filter((i) => i.id !== id));
   const saveDay = () => {
@@ -656,6 +693,17 @@ const InputPage = ({ data, setData, addToast, isAdmin, restoObjectives, restoOve
       <div>
         <div className="card" style={{ marginBottom: 20 }}><div className="card-header"><div className="card-title">Saisie journalière</div></div>
           <div className="form-group"><label className="form-label">Date</label><input className="form-input" type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} /></div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.5px" }}>Chiffre d'affaires</div>
+            <button className="btn btn-sm btn-secondary" onClick={() => fetchZeltyCA(selectedDate)} disabled={zeltyLoading} style={{ fontSize: 12, gap: 6 }}>
+              {zeltyLoading ? "Chargement..." : "↻ Importer Zelty"}
+            </button>
+          </div>
+          {zeltyInfo && zeltyInfo.count > 0 && (
+            <div style={{ padding: "8px 12px", background: "var(--accent-bg)", borderRadius: 6, marginBottom: 12, fontSize: 12, color: "var(--accent)", display: "flex", alignItems: "center", gap: 6 }}>
+              <span>✓</span> CA Zelty importé — {zeltyInfo.count} commandes
+            </div>
+          )}
           <div className="form-row"><div className="form-group"><label className="form-label">CA TTC (€)</label><input className="form-input" type="number" value={ca} onChange={(e) => setCa(e.target.value)} placeholder="3 850" min="0" step="0.01" /></div><div className="form-group"><label className="form-label">CA HT (€)</label><input className="form-input" type="number" value={caHt} onChange={(e) => setCaHt(e.target.value)} placeholder="3 500" min="0" step="0.01" /></div></div>
           <div className="form-group"><label className="form-label">Objectif du jour (€){!isAdmin && " 🔒"}</label><input className="form-input" type="number" value={objectif} onChange={(e) => { if (isAdmin) setObjectif(e.target.value); }} placeholder="3 000" min="0" step="0.01" readOnly={!isAdmin} style={!isAdmin ? { opacity: 0.6, cursor: "not-allowed" } : {}} /></div>
         </div>
