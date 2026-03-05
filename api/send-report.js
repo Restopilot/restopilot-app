@@ -1,0 +1,187 @@
+const RESEND_API_KEY = "re_bkga53Ts_Dd5csNTcYDVyqskq58bgqvBi";
+const ZELTY_API_KEY = "MTk4NzU68xOv4nIh5aqjJBgJrc9kWwKDo84=";
+const SUPABASE_URL = "https://yhvbnlgowccixqslijia.supabase.co";
+const SUPABASE_KEY = "sb_publishable_rURgUoNVrGxQm4e6OjrxsA_E5Skv2Tl";
+
+async function getZeltyCA(date) {
+  let totalTTC = 0, totalHT = 0, count = 0, offset = 0;
+  while (true) {
+    const url = `https://api.zelty.fr/2.7/orders?noz=${date}&limit=200&offset=${offset}`;
+    const resp = await fetch(url, { headers: { Authorization: `Bearer ${ZELTY_API_KEY}` } });
+    let raw = await resp.text();
+    raw = raw.replace(/[\x00-\x1f]/g, " ");
+    const data = JSON.parse(raw);
+    const orders = data.orders || [];
+    if (!orders.length) break;
+    for (const o of orders) {
+      if (o.status === "closed") {
+        totalTTC += o.price.final_amount_inc_tax;
+        totalHT += o.price.final_amount_exc_tax;
+        count++;
+      }
+    }
+    if (orders.length < 200) break;
+    offset += 200;
+  }
+  return { ca_ttc: Math.round(totalTTC) / 100, ca_ht: Math.round(totalHT) / 100, orders_count: count };
+}
+
+async function getRecipients() {
+  const resp = await fetch(`${SUPABASE_URL}/rest/v1/alert_recipients?active=eq.true&select=email,name`, {
+    headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
+  });
+  return resp.json();
+}
+
+async function getObjectif(date) {
+  // First check if there's already data saved
+  const resp = await fetch(`${SUPABASE_URL}/rest/v1/daily_data?date=eq.${date}&select=objectif,restaurant_id`, {
+    headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
+  });
+  const rows = await resp.json();
+  return rows?.[0]?.objectif || 0;
+}
+
+async function getRestoId() {
+  const resp = await fetch(`${SUPABASE_URL}/rest/v1/restaurants?select=id&limit=1`, {
+    headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
+  });
+  const rows = await resp.json();
+  return rows?.[0]?.id || "r1";
+}
+
+async function saveCAToSupabase(date, ca_ttc, ca_ht, restoId) {
+  // Check if entry exists
+  const checkResp = await fetch(`${SUPABASE_URL}/rest/v1/daily_data?restaurant_id=eq.${restoId}&date=eq.${date}&select=id,objectif`, {
+    headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
+  });
+  const existing = await checkResp.json();
+
+  if (existing && existing.length > 0) {
+    // Update existing entry (keep objectif)
+    await fetch(`${SUPABASE_URL}/rest/v1/daily_data?id=eq.${existing[0].id}`, {
+      method: "PATCH",
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json", Prefer: "return=minimal" },
+      body: JSON.stringify({ ca: ca_ttc, ca_ht: ca_ht }),
+    });
+    return existing[0].objectif || 0;
+  } else {
+    // Insert new entry
+    await fetch(`${SUPABASE_URL}/rest/v1/daily_data`, {
+      method: "POST",
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json", Prefer: "return=minimal" },
+      body: JSON.stringify({ restaurant_id: restoId, date, ca: ca_ttc, ca_ht: ca_ht, objectif: 0 }),
+    });
+    return 0;
+  }
+}
+
+function formatEUR(v) {
+  return new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(v);
+}
+
+function buildEmailHTML(date, ca) {
+  const dateFR = new Date(date + "T12:00:00").toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+  const ecart = ca.ca_ttc - ca.objectif;
+  const isAbove = ecart >= 0;
+  const emoji = isAbove ? "🚀" : "⚠️";
+
+  return `
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"></head>
+<body style="font-family:Inter,system-ui,sans-serif;background:#F4F6F9;padding:32px 16px;margin:0">
+<div style="max-width:520px;margin:0 auto;background:#fff;border-radius:10px;overflow:hidden;border:1px solid #E2E8F0">
+  <div style="background:#1B2A4A;padding:24px 28px">
+    <div style="color:#fff;font-size:20px;font-weight:700">RestoPilot</div>
+    <div style="color:rgba(255,255,255,0.6);font-size:12px;margin-top:2px">RAPPORT QUOTIDIEN</div>
+  </div>
+  <div style="padding:28px">
+    <div style="font-size:14px;color:#94A3B8;margin-bottom:4px">Rapport du</div>
+    <div style="font-size:18px;font-weight:600;color:#1B2A4A;margin-bottom:24px">${dateFR}</div>
+    
+    <div style="background:#F4F6F9;border-radius:8px;padding:24px;text-align:center;margin-bottom:20px">
+      <div style="font-size:12px;color:#94A3B8;text-transform:uppercase;letter-spacing:0.5px">CA du jour</div>
+      <div style="font-size:36px;font-weight:700;color:#1A8C5B;margin:4px 0">${formatEUR(ca.ca_ttc)}</div>
+      <div style="font-size:13px;color:#475569">HT : ${formatEUR(ca.ca_ht)} · ${ca.orders_count} commandes</div>
+    </div>
+
+    <div style="display:flex;gap:12px;margin-bottom:20px">
+      <div style="flex:1;background:#F4F6F9;border-radius:8px;padding:16px;text-align:center">
+        <div style="font-size:11px;color:#94A3B8;text-transform:uppercase">Objectif</div>
+        <div style="font-size:20px;font-weight:700;color:#1B2A4A;margin-top:4px">${formatEUR(ca.objectif)}</div>
+      </div>
+      <div style="flex:1;background:${isAbove ? '#f0fdf4' : '#fef2f2'};border-radius:8px;padding:16px;text-align:center">
+        <div style="font-size:11px;color:#94A3B8;text-transform:uppercase">Écart</div>
+        <div style="font-size:20px;font-weight:700;color:${isAbove ? '#1A8C5B' : '#D9536B'};margin-top:4px">${isAbove ? '+' : ''}${formatEUR(ecart)}</div>
+      </div>
+    </div>
+
+    <div style="text-align:center;font-size:14px;color:#475569;padding:12px;background:${isAbove ? '#f0fdf4' : '#fef2f2'};border-radius:8px">
+      ${emoji} ${isAbove ? 'Au-dessus' : 'En-dessous'} de l'objectif ${ca.objectif > 0 ? '(' + (((ca.ca_ttc / ca.objectif) * 100).toFixed(1)) + '%)' : ''}
+    </div>
+  </div>
+  <div style="padding:16px 28px;background:#F4F6F9;font-size:11px;color:#94A3B8;text-align:center">
+    Rapport généré automatiquement par RestoPilot à 01:00
+  </div>
+</div>
+</body></html>`;
+}
+
+export default async function handler(req, res) {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  if (req.method === "OPTIONS") return res.status(200).end();
+
+  try {
+    // GET = cron (yesterday), POST with test=true = test (today)
+    const isTest = req.method === "POST" && req.body?.test === true;
+    const now = new Date();
+    const targetDate = isTest
+      ? now.toISOString().slice(0, 10)
+      : new Date(now.getTime() - 86400000).toISOString().slice(0, 10);
+
+    // Fetch data
+    const [ca, recipients, restoId] = await Promise.all([
+      getZeltyCA(targetDate),
+      getRecipients(),
+      getRestoId(),
+    ]);
+
+    // Save CA to Supabase (auto-enregistrement journalier)
+    const objectif = await saveCAToSupabase(targetDate, ca.ca_ttc, ca.ca_ht, restoId);
+    ca.objectif = objectif;
+
+    if (!recipients.length) {
+      return res.status(200).json({ success: false, error: "Aucun destinataire actif" });
+    }
+
+    const html = buildEmailHTML(targetDate, ca);
+    const dateFR = new Date(targetDate + "T12:00:00").toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" });
+
+    // Send via Resend
+    const emailResp = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${RESEND_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: "RestoPilot <onboarding@resend.dev>",
+        to: recipients.map((r) => r.email),
+        subject: `Rapport CA – ${dateFR}`,
+        html,
+      }),
+    });
+
+    const emailResult = await emailResp.json();
+
+    if (emailResp.ok) {
+      return res.status(200).json({ success: true, sent_to: recipients.length, date: targetDate, ca_ttc: ca.ca_ttc, ca_ht: ca.ca_ht, saved: true });
+    } else {
+      return res.status(200).json({ success: false, error: emailResult?.message || "Erreur Resend" });
+    }
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+}
