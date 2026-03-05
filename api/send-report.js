@@ -3,10 +3,10 @@ const ZELTY_API_KEY = "MTk4NzU68xOv4nIh5aqjJBgJrc9kWwKDo84=";
 const SUPABASE_URL = "https://yhvbnlgowccixqslijia.supabase.co";
 const SUPABASE_KEY = "sb_publishable_rURgUoNVrGxQm4e6OjrxsA_E5Skv2Tl";
 
-async function getZeltyCA(date) {
+async function fetchOrders(date, queryParams) {
   let totalTTC = 0, totalHT = 0, count = 0, offset = 0;
   while (true) {
-    const url = `https://api.zelty.fr/2.7/orders?noz=${date}&limit=200&offset=${offset}`;
+    const url = `https://api.zelty.fr/2.7/orders?${queryParams}&limit=200&offset=${offset}`;
     const resp = await fetch(url, { headers: { Authorization: `Bearer ${ZELTY_API_KEY}` } });
     let raw = await resp.text();
     raw = raw.replace(/[\x00-\x1f]/g, " ");
@@ -23,7 +23,18 @@ async function getZeltyCA(date) {
     if (orders.length < 200) break;
     offset += 200;
   }
-  return { ca_ttc: Math.round(totalTTC) / 100, ca_ht: Math.round(totalHT) / 100, orders_count: count };
+  return { totalTTC, totalHT, count };
+}
+
+async function getZeltyCA(date) {
+  let result = await fetchOrders(date, `noz=${date}`);
+  if (result.count === 0) {
+    result = await fetchOrders(date, `from=${date}T00:00:00%2B01:00&to=${date}T23:59:59%2B01:00`);
+  }
+  if (result.count === 0) {
+    result = await fetchOrders(date, `from=${date}T00:00:00&to=${date}T23:59:59`);
+  }
+  return { ca_ttc: Math.round(result.totalTTC) / 100, ca_ht: Math.round(result.totalHT) / 100, orders_count: result.count };
 }
 
 async function getRecipients() {
