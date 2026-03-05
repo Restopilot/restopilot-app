@@ -611,13 +611,40 @@ const DashboardPage = ({ data, restoName }) => {
         </div>
       )}
       {stats.ratioP > RATIO_ALERT_THRESHOLD && (<div className="alert-banner warning"><Icon name="alert" size={20} /><div><strong>Ratio matières trop élevé !</strong><div style={{ fontSize: 13, marginTop: 2 }}>Ratio période : {formatPct(stats.ratioP)} — seuil de {RATIO_ALERT_THRESHOLD}% dépassé. Achats HT : {formatCurrency(stats.taP)} / CA HT : {formatCurrency(stats.caPHt)}.</div></div></div>)}
+      {(() => {
+        const liveCA = zeltyLive ? zeltyLive.ca_ttc : stats.ca;
+        const liveHT = zeltyLive ? zeltyLive.ca_ht : stats.ca_ht;
+        const obj = stats.objectif;
+        const ecart = liveCA - obj;
+        const isAbove = ecart >= 0;
+        return (
+          <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: "24px 28px", marginBottom: 20, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 16 }}>
+            <div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                <span style={{ fontSize: 13, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.5px" }}>CA du jour</span>
+                {zeltyLive && <span style={{ fontSize: 9, background: "var(--accent)", color: "#fff", padding: "2px 8px", borderRadius: 4 }}>Zelty live · {zeltyLive.orders_count} cmd</span>}
+              </div>
+              <div style={{ fontSize: 36, fontWeight: 700, color: "var(--accent)", lineHeight: 1.1 }}>{formatCurrency(liveCA)}</div>
+              <div style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 4 }}>HT : {formatCurrency(liveHT)}</div>
+            </div>
+            <div style={{ textAlign: "center" }}>
+              <div style={{ fontSize: 12, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 4 }}>Objectif</div>
+              <div style={{ fontSize: 24, fontWeight: 600, color: "var(--text-primary)" }}>{formatCurrency(obj)}</div>
+            </div>
+            <div style={{ textAlign: "right" }}>
+              <div style={{ fontSize: 12, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 4 }}>Écart</div>
+              <div style={{ fontSize: 28, fontWeight: 700, color: isAbove ? "var(--accent)" : "var(--red)" }}>
+                {isAbove ? "+" : ""}{formatCurrency(ecart)}
+              </div>
+              {obj > 0 && <div style={{ fontSize: 13, marginTop: 2 }}>{isAbove ? "🚀" : "⚠️"} {isAbove ? "Au-dessus" : "En-dessous"} de l'objectif</div>}
+            </div>
+          </div>
+        );
+      })()}
       <div className="kpi-grid" style={{ gridTemplateColumns: "repeat(3, 1fr)" }}>
-        <div className="kpi-card green"><div className="kpi-label" style={{ display: "flex", alignItems: "center", gap: 6 }}>CA du jour (TTC){zeltyLive && <span style={{ fontSize: 9, background: "var(--accent)", color: "#fff", padding: "1px 6px", borderRadius: 4, textTransform: "none", letterSpacing: 0 }}>Zelty live</span>}</div><div className="kpi-value green">{formatCurrency(zeltyLive ? zeltyLive.ca_ttc : stats.ca)}</div><div className="kpi-sub">HT : {formatCurrency(zeltyLive ? zeltyLive.ca_ht : stats.ca_ht)} · Obj : {formatCurrency(stats.objectif)}{zeltyLive ? " · " + zeltyLive.orders_count + " cmd" : ""}</div></div>
         <div className="kpi-card blue"><div className="kpi-label">CA période (TTC)</div><div className="kpi-value blue">{formatCurrency(stats.caP)}</div><div className="kpi-sub">HT : {formatCurrency(stats.caPHt)} · {filteredData.length} jours</div></div>
         <div className={"kpi-card " + (stats.ratioP > RATIO_ALERT_THRESHOLD ? "red" : "gold")}><div className="kpi-label">Ratio matières période</div><div className={"kpi-value " + (stats.ratioP > RATIO_ALERT_THRESHOLD ? "red" : "gold")}>{formatPct(stats.ratioP)}</div><div className="kpi-sub">Achats : {formatCurrency(stats.taP)}</div></div>
-        <div className={"kpi-card " + (stats.atteinte >= 100 ? "green" : "blue")}><div className="kpi-label">Atteinte objectif du jour</div><div className={"kpi-value " + (stats.atteinte >= 100 ? "green" : "blue")}>{formatPct(stats.atteinte)}</div><div className="kpi-sub">Écart : {stats.ecart >= 0 ? "+" : ""}{formatCurrency(stats.ecart)}</div></div>
-        <div className="kpi-card gold"><div className="kpi-label">Moy. atteinte période</div><div className={"kpi-value " + (stats.avgAtteinte >= 100 ? "green" : "gold")}>{formatPct(stats.avgAtteinte)}</div><div className="kpi-sub">{periodLabel}</div></div>
-        <div className="kpi-card purple"><div className="kpi-label">Achats HT période</div><div className="kpi-value purple">{formatCurrency(stats.taP)}</div><div className="kpi-sub">vs CA HT : {formatCurrency(stats.caPHt)}</div></div>
+        <div className={"kpi-card " + (stats.atteinte >= 100 ? "green" : "blue")}><div className="kpi-label">Atteinte objectif du jour</div><div className={"kpi-value " + (stats.atteinte >= 100 ? "green" : "blue")}>{formatPct(zeltyLive && stats.objectif > 0 ? ((zeltyLive.ca_ttc / stats.objectif) * 100) : stats.atteinte)}</div><div className="kpi-sub">Période : {formatPct(stats.avgAtteinte)}</div></div>
       </div>
       <div className="grid-2">
         <div className="card"><div className="card-header"><div><div className="card-title">Évolution CA vs Objectif</div><div className="card-subtitle">{periodLabel}</div></div></div><div style={{ height: 280 }}><ResponsiveContainer width="100%" height="100%"><AreaChart data={chartData}><defs><linearGradient id="gradCA" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#1A8C5B" stopOpacity={0.2} /><stop offset="95%" stopColor="#1A8C5B" stopOpacity={0} /></linearGradient></defs><CartesianGrid strokeDasharray="3 3" stroke="#2C2C30" /><XAxis dataKey="date" tick={{ fill: "#63636B", fontSize: 11 }} /><YAxis tick={{ fill: "#63636B", fontSize: 11 }} /><Tooltip content={<CustomTooltip />} /><Area type="monotone" dataKey="CA TTC" stroke="#1A8C5B" fill="url(#gradCA)" strokeWidth={2} name="CA TTC" /><Line type="monotone" dataKey="Objectif" stroke="#D9536B" strokeWidth={2} strokeDasharray="6 3" dot={false} name="Objectif" /></AreaChart></ResponsiveContainer></div></div>
@@ -748,32 +775,87 @@ const HistoryPage = ({ data }) => {
 };
 
 const AlertsPage = ({ data, addToast }) => {
+  const [recipients, setRecipients] = useState([]);
+  const [newEmail, setNewEmail] = useState("");
+  const [newName, setNewName] = useState("");
+  const [sending, setSending] = useState(false);
+
+  useEffect(() => {
+    supabase.from("alert_recipients").select("*").order("id").then(({ data: r }) => { if (r) setRecipients(r); });
+  }, []);
+
+  const addRecipient = async () => {
+    if (!newEmail || !newEmail.includes("@")) { addToast("Email invalide", "error"); return; }
+    const { data: r, error } = await supabase.from("alert_recipients").insert({ email: newEmail.trim(), name: newName.trim() || null, active: true }).select().single();
+    if (error) { addToast("Erreur : " + (error.message.includes("duplicate") ? "Email déjà ajouté" : error.message), "error"); return; }
+    setRecipients([...recipients, r]);
+    setNewEmail(""); setNewName("");
+    addToast("Destinataire ajouté : " + newEmail, "success");
+  };
+
+  const toggleRecipient = async (id, active) => {
+    await supabase.from("alert_recipients").update({ active: !active }).eq("id", id);
+    setRecipients(recipients.map(r => r.id === id ? { ...r, active: !active } : r));
+  };
+
+  const removeRecipient = async (id) => {
+    if (!window.confirm("Supprimer ce destinataire ?")) return;
+    await supabase.from("alert_recipients").delete().eq("id", id);
+    setRecipients(recipients.filter(r => r.id !== id));
+    addToast("Destinataire supprimé", "info");
+  };
+
+  const sendTestEmail = async () => {
+    const active = recipients.filter(r => r.active);
+    if (!active.length) { addToast("Aucun destinataire actif", "error"); return; }
+    setSending(true);
+    try {
+      const resp = await fetch("/api/send-report", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ test: true }) });
+      const result = await resp.json();
+      if (result.success) addToast("Email test envoyé à " + active.length + " destinataire(s)", "success");
+      else addToast("Erreur envoi : " + (result.error || "inconnue"), "error");
+    } catch (e) { addToast("Erreur : " + e.message, "error"); }
+    setSending(false);
+  };
+
   const alerts = useMemo(() => data.filter((d) => { const ta = d.invoices.reduce((s, i) => s + i.montant, 0); const ht = d.ca_ht || Math.round(d.ca / 1.1); return ht > 0 && (ta / ht) * 100 > RATIO_ALERT_THRESHOLD; }).reverse().slice(0, 20), [data]);
-  const latest = data[data.length - 1];
-  const latestHt = latest ? (latest.ca_ht || Math.round(latest.ca / 1.1)) : 0;
-  const latestTa = latest ? latest.invoices.reduce((s, i) => s + i.montant, 0) : 0;
-  const latestRatio = latestHt > 0 ? (latestTa / latestHt) * 100 : 0;
-  const latestAtteinte = latest && latest.objectif > 0 ? (latest.ca / latest.objectif) * 100 : 0;
+
   return (
     <div className="content-area"><div className="grid-2" style={{ alignItems: "start" }}>
       <div>
-        <div className="card" style={{ marginBottom: 20 }}><div className="card-header"><div><div className="card-title">Configuration des alertes</div><div className="card-subtitle">Seuil actuel : {RATIO_ALERT_THRESHOLD}%</div></div></div>
-          <div style={{ padding: 20, background: "var(--bg-input)", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", marginBottom: 16 }}><div style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.7 }}>Lorsque le ratio <strong style={{ color: "var(--gold)" }}>coût matières HT / CA HT</strong> dépasse <strong style={{ color: "var(--red)" }}>{RATIO_ALERT_THRESHOLD}%</strong>, une alerte est déclenchée.</div></div>
-          <button className="btn btn-secondary" onClick={() => addToast("📧 Email récapitulatif simulé", "info")} style={{ width: "100%", justifyContent: "center" }}><Icon name="mail" size={16} /> Simuler envoi récapitulatif</button>
-        </div>
-        {latest && (<div className="card"><div className="card-header"><div className="card-title">Aperçu email</div></div>
-          <div style={{ background: "var(--bg-input)", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", overflow: "hidden" }}>
-            <div style={{ padding: "12px 16px", background: "var(--bg-secondary)", borderBottom: "1px solid var(--border)", fontSize: 12, color: "var(--text-muted)" }}><div><strong>De :</strong> RestoPilot</div><div><strong>Objet :</strong> Récap du {formatDateFull(latest.date)}</div></div>
-            <div style={{ padding: 20, fontSize: 14, lineHeight: 1.8, color: "var(--text-secondary)" }}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }}>
-                {[{ label: "CA TTC", value: formatCurrency(latest.ca), color: "var(--accent)" },{ label: "CA HT", value: formatCurrency(latestHt), color: "var(--accent)" },{ label: "Objectif", value: formatCurrency(latest.objectif), color: "var(--gold)" },{ label: "Atteinte", value: formatPct(latestAtteinte), color: latestAtteinte >= 100 ? "var(--accent)" : "var(--red)" },{ label: "Achats HT", value: formatCurrency(latestTa), color: "var(--text-primary)" },{ label: "Ratio HT/HT", value: formatPct(latestRatio), color: latestRatio > RATIO_ALERT_THRESHOLD ? "var(--red)" : "var(--gold)" }].map((item) => (<div key={item.label} style={{ padding: 10, background: "var(--bg-card)", borderRadius: 6, border: "1px solid var(--border)" }}><div style={{ fontSize: 11, color: "var(--text-muted)" }}>{item.label}</div><div style={{ fontSize: 16, fontWeight: 700, color: item.color, fontFamily: "Inter, sans-serif" }}>{item.value}</div></div>))}
-              </div>
-              {latestRatio > RATIO_ALERT_THRESHOLD && (<div style={{ padding: 12, background: "var(--red-bg)", borderRadius: 6, border: "1px solid rgba(248,113,113,0.2)", color: "var(--red)", fontSize: 13 }}>⚠️ Ratio HT/HT dépasse {RATIO_ALERT_THRESHOLD}%.</div>)}
-            </div>
+        <div className="card" style={{ marginBottom: 20 }}><div className="card-header"><div><div className="card-title">Destinataires du rapport quotidien</div><div className="card-subtitle">Email envoyé chaque jour à 01h00</div></div></div>
+          <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+            <input className="form-input" placeholder="Email" value={newEmail} onChange={e => setNewEmail(e.target.value)} style={{ flex: 2 }} />
+            <input className="form-input" placeholder="Nom (optionnel)" value={newName} onChange={e => setNewName(e.target.value)} style={{ flex: 1 }} />
+            <button className="btn btn-primary btn-sm" onClick={addRecipient}>Ajouter</button>
           </div>
-        </div>)}
+          {recipients.length > 0 ? (
+            <div>{recipients.map(r => (
+              <div key={r.id} className="invoice-item" style={{ marginBottom: 6 }}>
+                <div className="invoice-left">
+                  <div className="invoice-icon" style={{ background: r.active ? "var(--accent-bg)" : "var(--bg-input)", cursor: "pointer" }} onClick={() => toggleRecipient(r.id, r.active)}>{r.active ? "✉️" : "⏸️"}</div>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 500, opacity: r.active ? 1 : 0.5 }}>{r.email}</div>
+                    <div style={{ fontSize: 12, color: "var(--text-muted)" }}>{r.name || "—"} · {r.active ? "Actif" : "Désactivé"}</div>
+                  </div>
+                </div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button className="btn-icon" onClick={() => toggleRecipient(r.id, r.active)} style={{ padding: 4, border: "none" }}>{r.active ? "⏸" : "▶"}</button>
+                  <button className="btn-icon" onClick={() => removeRecipient(r.id)} style={{ padding: 4, border: "none" }}><Icon name="trash" size={14} color="var(--red)" /></button>
+                </div>
+              </div>
+            ))}</div>
+          ) : (<div style={{ textAlign: "center", padding: 24, color: "var(--text-muted)" }}>Aucun destinataire configuré</div>)}
+          <button className="btn btn-secondary" onClick={sendTestEmail} disabled={sending} style={{ width: "100%", justifyContent: "center", marginTop: 16 }}><Icon name="mail" size={16} /> {sending ? "Envoi en cours..." : "Envoyer un email test maintenant"}</button>
+        </div>
+        <div className="card"><div className="card-header"><div><div className="card-title">Configuration des alertes</div><div className="card-subtitle">Seuil ratio matières : {RATIO_ALERT_THRESHOLD}%</div></div></div>
+          <div style={{ padding: 16, background: "var(--bg-input)", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.7 }}>
+            <strong>Rapport quotidien</strong> envoyé à 01h00 avec le CA TTC, HT, objectif et écart de la veille.<br/>
+            <strong>Alerte ratio</strong> : si le ratio dépasse <strong style={{ color: "var(--red)" }}>{RATIO_ALERT_THRESHOLD}%</strong>, un avertissement est inclus dans le mail.
+          </div>
+        </div>
       </div>
-      <div className="card"><div className="card-header"><div><div className="card-title">Historique alertes</div><div className="card-subtitle">{alerts.length} jour(s) en dépassement</div></div></div>
+      <div className="card"><div className="card-header"><div><div className="card-title">Historique alertes ratio</div><div className="card-subtitle">{alerts.length} jour(s) en dépassement</div></div></div>
         {alerts.length > 0 ? (<div style={{ maxHeight: 600, overflowY: "auto" }}>{alerts.map((d) => { const ta = d.invoices.reduce((s, i) => s + i.montant, 0); const ht = d.ca_ht || Math.round(d.ca / 1.1); const ratio = (ta / ht) * 100; return (<div key={d.date} className="invoice-item" style={{ borderColor: "rgba(248,113,113,0.2)" }}><div className="invoice-left"><div className="invoice-icon" style={{ background: "var(--red-bg)" }}>⚠️</div><div><div style={{ fontSize: 14, fontWeight: 500 }}>{formatDateFR(d.date)}</div><div style={{ fontSize: 12, color: "var(--text-muted)" }}>CA HT: {formatCurrency(ht)} | Achats: {formatCurrency(ta)}</div></div></div><span className="badge badge-red">{formatPct(ratio)}</span></div>); })}</div>) : (<div style={{ textAlign: "center", padding: 40, color: "var(--text-muted)" }}>✅ Aucune alerte</div>)}
       </div>
     </div></div>
