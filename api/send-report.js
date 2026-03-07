@@ -91,7 +91,31 @@ function formatEUR(v) {
   return new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(v);
 }
 
-function buildEmailHTML(date, ca) {
+async function getMonthlyRatio(date, restoId) {
+  const yearMonth = date.substring(0, 7);
+  const monthStart = yearMonth + "-01";
+  const monthEnd = yearMonth + "-31";
+  try {
+    const daysResp = await fetch(`${SUPABASE_URL}/rest/v1/daily_data?restaurant_id=eq.${restoId}&date=gte.${monthStart}&date=lte.${monthEnd}&select=ca_ht`, {
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
+    });
+    const days = await daysResp.json();
+    const totalHT = (days || []).reduce((s, d) => s + Number(d.ca_ht || 0), 0);
+
+    const invsResp = await fetch(`${SUPABASE_URL}/rest/v1/invoices?restaurant_id=eq.${restoId}&date=gte.${monthStart}&date=lte.${monthEnd}&select=montant`, {
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
+    });
+    const invs = await invsResp.json();
+    const totalAchats = (invs || []).reduce((s, i) => s + Number(i.montant || 0), 0);
+
+    if (totalHT > 0) return (totalAchats / totalHT) * 100;
+    return null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function buildEmailHTML(date, ca, monthlyRatio) {
   const dateFR = new Date(date + "T12:00:00").toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
   const ecart = ca.ca_ttc - ca.objectif;
   const isAbove = ecart >= 0;
@@ -130,6 +154,12 @@ function buildEmailHTML(date, ca) {
     <div style="text-align:center;font-size:14px;color:#475569;padding:12px;background:${isAbove ? '#f0fdf4' : '#fef2f2'};border-radius:8px">
       ${emoji} ${isAbove ? 'Au-dessus' : 'En-dessous'} de l'objectif ${ca.objectif > 0 ? '(' + (((ca.ca_ttc / ca.objectif) * 100).toFixed(1)) + '%)' : ''}
     </div>
+
+    ${monthlyRatio !== null ? `<div style="margin-top:16px;padding:16px;background:#F4F6F9;border-radius:8px;text-align:center">
+      <div style="font-size:11px;color:#94A3B8;text-transform:uppercase;letter-spacing:0.5px">Ratio matières — mois en cours</div>
+      <div style="font-size:28px;font-weight:700;color:${monthlyRatio > 28 ? '#D9536B' : '#1A8C5B'};margin:4px 0">${monthlyRatio.toFixed(1)}%</div>
+      <div style="font-size:12px;color:#94A3B8">Seuil : 28%${monthlyRatio > 28 ? ' ⚠️ Dépassé' : ' ✅'}</div>
+    </div>` : ''}
   </div>
   <div style="padding:16px 28px;background:#F4F6F9;font-size:11px;color:#94A3B8;text-align:center">
     Rapport généré automatiquement par RestoPilot à 01:00
@@ -163,11 +193,14 @@ export default async function handler(req, res) {
     const objectif = await saveCAToSupabase(targetDate, ca.ca_ttc, ca.ca_ht, restoId);
     ca.objectif = objectif;
 
+    // Get monthly ratio
+    const monthlyRatio = await getMonthlyRatio(targetDate, restoId);
+
     if (!recipients.length) {
       return res.status(200).json({ success: false, error: "Aucun destinataire actif" });
     }
 
-    const html = buildEmailHTML(targetDate, ca);
+    const html = buildEmailHTML(targetDate, ca, monthlyRatio);
     const dateFR = new Date(targetDate + "T12:00:00").toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" });
 
     // Send via Resend
