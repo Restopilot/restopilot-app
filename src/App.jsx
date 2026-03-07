@@ -38,6 +38,7 @@ const Icon = ({ name, size = 20, color = "currentColor" }) => {
     settings: <><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></>,
     menu: <><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></>,
     chevronDown: <><polyline points="6 9 12 15 18 9"/></>,
+    truck: <><rect x="1" y="3" width="15" height="13" rx="2"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></>,
   };
   return (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">{icons[name]}</svg>);
 };
@@ -632,7 +633,7 @@ const DashboardPage = ({ data, restoName }) => {
   );
 };
 
-const InputPage = ({ data, setData, addToast, isAdmin, restoObjectives, restoOverrides }) => {
+const InputPage = ({ data, setData, addToast, isAdmin, restoObjectives, restoOverrides, suppliers }) => {
   const todayStr = today();
   const existing = data.find((d) => d.date === todayStr);
   const [ca, setCa] = useState(existing?.ca?.toString() || "");
@@ -718,7 +719,7 @@ const InputPage = ({ data, setData, addToast, isAdmin, restoObjectives, restoOve
           <div className="form-group"><label className="form-label">Objectif du jour (€){!isAdmin && " 🔒"}</label><input className="form-input" type="number" value={objectif} onChange={(e) => { if (isAdmin) setObjectif(e.target.value); }} placeholder="3 000" min="0" step="0.01" readOnly={!isAdmin} style={!isAdmin ? { opacity: 0.6, cursor: "not-allowed" } : {}} /></div>
         </div>
         <div className="card"><div className="card-header"><div className="card-title">Ajouter une facture fournisseur</div></div>
-          <div className="form-row"><div className="form-group"><label className="form-label">Fournisseur</label><input className="form-input" value={newInvoice.fournisseur} onChange={(e) => setNewInvoice({ ...newInvoice, fournisseur: e.target.value })} placeholder="Nom du fournisseur" /></div><div className="form-group"><label className="form-label">Montant HT (€)</label><input className="form-input" type="number" value={newInvoice.montant} onChange={(e) => setNewInvoice({ ...newInvoice, montant: e.target.value })} placeholder="250" min="0" step="0.01" /></div></div>
+          <div className="form-row"><div className="form-group"><label className="form-label">Fournisseur</label><select className="form-select" value={newInvoice.fournisseur} onChange={(e) => setNewInvoice({ ...newInvoice, fournisseur: e.target.value })}><option value="">— Choisir —</option>{suppliers.map((s) => <option key={s.id} value={s.name}>{s.name}</option>)}</select></div><div className="form-group"><label className="form-label">Montant HT (€)</label><input className="form-input" type="number" value={newInvoice.montant} onChange={(e) => setNewInvoice({ ...newInvoice, montant: e.target.value })} placeholder="250" min="0" step="0.01" /></div></div>
           <div className="form-group"><label className="form-label">Catégorie</label><select className="form-select" value={newInvoice.categorie} onChange={(e) => setNewInvoice({ ...newInvoice, categorie: e.target.value })}>{CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}</select></div>
           <button className="btn btn-primary" onClick={addInvoice} style={{ width: "100%", justifyContent: "center" }}><Icon name="plus" size={16} color="var(--bg-primary)" /> Ajouter la facture</button>
         </div>
@@ -944,6 +945,161 @@ const RestosPage = ({ restaurants, users, currentUser, onAddResto, onDeleteResto
   );
 };
 
+const SuppliersPage = ({ suppliers, setSuppliers, data, addToast, isAdmin, currentRestoId }) => {
+  const [newName, setNewName] = useState("");
+  const [newCat, setNewCat] = useState(CATEGORIES[0]);
+  const [period, setPeriod] = useState("month");
+  const [customFrom, setCustomFrom] = useState("");
+  const [customTo, setCustomTo] = useState("");
+  const [filterSupplier, setFilterSupplier] = useState("all");
+
+  const addSupplier = async () => {
+    if (!newName.trim()) { addToast("Nom requis", "error"); return; }
+    const { data: s, error } = await supabase.from("suppliers").insert({ name: newName.trim(), category: newCat, restaurant_id: currentRestoId, active: true }).select().single();
+    if (error) { addToast(error.message.includes("duplicate") ? "Ce fournisseur existe déjà" : error.message, "error"); return; }
+    setSuppliers(prev => [...prev, s]);
+    setNewName(""); addToast("Fournisseur ajouté : " + newName, "success");
+  };
+
+  const removeSupplier = async (id) => {
+    if (!window.confirm("Supprimer ce fournisseur ?")) return;
+    await supabase.from("suppliers").update({ active: false }).eq("id", id);
+    setSuppliers(prev => prev.filter(s => s.id !== id));
+    addToast("Fournisseur supprimé", "info");
+  };
+
+  const filteredData = useMemo(() => {
+    const now = new Date();
+    let filtered = data;
+    if (period === "week") {
+      const dow = (now.getDay() + 6) % 7;
+      const ws = new Date(now); ws.setDate(now.getDate() - dow); ws.setHours(0,0,0,0);
+      filtered = data.filter(d => new Date(d.date + "T00:00:00") >= ws);
+    } else if (period === "month") {
+      filtered = data.filter(d => { const dt = new Date(d.date + "T00:00:00"); return dt.getFullYear() === now.getFullYear() && dt.getMonth() === now.getMonth(); });
+    } else if (period === "quarter") {
+      const qm = Math.floor(now.getMonth() / 3) * 3;
+      const qs = new Date(now.getFullYear(), qm, 1);
+      filtered = data.filter(d => new Date(d.date + "T00:00:00") >= qs);
+    } else if (period === "custom" && customFrom && customTo) {
+      filtered = data.filter(d => d.date >= customFrom && d.date <= customTo);
+    }
+    return filtered;
+  }, [data, period, customFrom, customTo]);
+
+  const supplierStats = useMemo(() => {
+    const stats = {};
+    filteredData.forEach(d => d.invoices.forEach(i => {
+      if (!stats[i.fournisseur]) stats[i.fournisseur] = { total: 0, count: 0, invoices: [] };
+      stats[i.fournisseur].total += i.montant;
+      stats[i.fournisseur].count++;
+      stats[i.fournisseur].invoices.push({ ...i, dayDate: d.date });
+    }));
+    return Object.entries(stats).sort((a, b) => b[1].total - a[1].total);
+  }, [filteredData]);
+
+  const filteredStats = filterSupplier === "all" ? supplierStats : supplierStats.filter(([name]) => name === filterSupplier);
+
+  const exportSupplierCSV = () => {
+    const BOM = "\uFEFF";
+    const headers = ["Fournisseur","Date","Montant HT","Catégorie"];
+    const rows = [];
+    filteredStats.forEach(([name, s]) => {
+      s.invoices.forEach(i => rows.push([name, i.dayDate, i.montant, i.categorie].join(";")));
+      rows.push([name, "TOTAL", s.total.toFixed(2), ""].join(";"));
+      rows.push("");
+    });
+    const csv = BOM + headers.join(";") + "\n" + rows.join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = url; a.download = "fournisseurs_export.csv"; a.click(); URL.revokeObjectURL(url);
+  };
+
+  const exportSupplierPDF = () => {
+    const fc = (v) => new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(v);
+    const periodLabel = period === "week" ? "Semaine en cours" : period === "month" ? "Mois en cours" : period === "quarter" ? "Trimestre en cours" : "Période personnalisée";
+    const w = window.open("", "_blank");
+    w.document.write("<html><head><title>Export Fournisseurs</title><style>body{font-family:Inter,system-ui,sans-serif;padding:40px;color:#333}h1{font-size:22px;margin-bottom:4px}h2{font-size:14px;color:#666;margin-bottom:24px}h3{font-size:16px;margin:24px 0 8px;padding-top:16px;border-top:2px solid #1B2A4A}table{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:12px}th{text-align:left;padding:6px 10px;border-bottom:2px solid #ddd;font-size:11px;text-transform:uppercase;color:#999}td{padding:6px 10px;border-bottom:1px solid #eee}.r{text-align:right}.total{font-weight:700;background:#f4f6f9}@media print{body{padding:20px}}</style></head><body>");
+    w.document.write("<h1>Export Fournisseurs</h1><h2>" + periodLabel + " — " + filteredData.length + " jours</h2>");
+    filteredStats.forEach(([name, s]) => {
+      w.document.write('<h3>' + name + ' — ' + fc(s.total) + ' (' + s.count + ' factures)</h3>');
+      w.document.write('<table><thead><tr><th>Date</th><th>Catégorie</th><th class="r">Montant HT</th></tr></thead><tbody>');
+      s.invoices.forEach(i => w.document.write('<tr><td>' + i.dayDate + '</td><td>' + i.categorie + '</td><td class="r">' + fc(i.montant) + '</td></tr>'));
+      w.document.write('<tr class="total"><td colspan="2">Total ' + name + '</td><td class="r">' + fc(s.total) + '</td></tr></tbody></table>');
+    });
+    const grandTotal = filteredStats.reduce((s, [, v]) => s + v.total, 0);
+    w.document.write('<h3 style="color:#1B2A4A">Total général : ' + fc(grandTotal) + '</h3>');
+    w.document.write("</body></html>");
+    w.document.close();
+    setTimeout(() => w.print(), 300);
+  };
+
+  const periodBtnStyle = (p) => ({
+    padding: "6px 14px", borderRadius: 6, border: period === p ? "none" : "1px solid var(--border)",
+    background: period === p ? "var(--accent)" : "var(--bg-card)", color: period === p ? "#fff" : "var(--text-secondary)",
+    fontSize: 13, fontWeight: 500, cursor: "pointer"
+  });
+
+  return (
+    <div className="content-area">
+      {isAdmin && (
+        <div className="card" style={{ marginBottom: 20 }}>
+          <div className="card-header"><div className="card-title">Ajouter un fournisseur</div></div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <input className="form-input" placeholder="Nom du fournisseur" value={newName} onChange={e => setNewName(e.target.value)} style={{ flex: 2 }} />
+            <select className="form-select" value={newCat} onChange={e => setNewCat(e.target.value)} style={{ flex: 1 }}>{CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}</select>
+            <button className="btn btn-primary btn-sm" onClick={addSupplier}>Ajouter</button>
+          </div>
+          {suppliers.length > 0 && (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 12 }}>
+              {suppliers.map(s => (
+                <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 12px", background: "var(--bg-input)", border: "1px solid var(--border)", borderRadius: 6, fontSize: 13 }}>
+                  <span>{s.name}</span><span style={{ color: "var(--text-muted)", fontSize: 11 }}>({s.category})</span>
+                  <button onClick={() => removeSupplier(s.id)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--red)", fontSize: 14, padding: 0, marginLeft: 4 }}>×</button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12, marginBottom: 20 }}>
+        <div style={{ display: "flex", gap: 6 }}>
+          <button style={periodBtnStyle("week")} onClick={() => setPeriod("week")}>Semaine</button>
+          <button style={periodBtnStyle("month")} onClick={() => setPeriod("month")}>Mois</button>
+          <button style={periodBtnStyle("quarter")} onClick={() => setPeriod("quarter")}>Trimestre</button>
+          <button style={periodBtnStyle("custom")} onClick={() => setPeriod("custom")}>Personnalisé</button>
+        </div>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <select className="form-select" value={filterSupplier} onChange={e => setFilterSupplier(e.target.value)} style={{ width: "auto", fontSize: 13 }}>
+            <option value="all">Tous les fournisseurs</option>
+            {supplierStats.map(([name]) => <option key={name} value={name}>{name}</option>)}
+          </select>
+          <button className="btn btn-secondary btn-sm" onClick={exportSupplierCSV}><Icon name="download" size={14} /> CSV</button>
+          <button className="btn btn-secondary btn-sm" onClick={exportSupplierPDF}><Icon name="download" size={14} /> PDF</button>
+        </div>
+      </div>
+      {period === "custom" && (
+        <div style={{ display: "flex", gap: 12, marginBottom: 16, alignItems: "center" }}>
+          <input type="date" className="form-input" style={{ width: "auto" }} value={customFrom} onChange={e => setCustomFrom(e.target.value)} />
+          <span style={{ color: "var(--text-muted)" }}>→</span>
+          <input type="date" className="form-input" style={{ width: "auto" }} value={customTo} onChange={e => setCustomTo(e.target.value)} />
+        </div>
+      )}
+      {filteredStats.length > 0 ? filteredStats.map(([name, s]) => (
+        <div key={name} className="card" style={{ marginBottom: 16 }}>
+          <div className="card-header">
+            <div><div className="card-title">{name}</div><div className="card-subtitle">{s.count} facture(s)</div></div>
+            <div style={{ fontSize: 22, fontWeight: 700, color: "var(--accent)" }}>{formatCurrency(s.total)}</div>
+          </div>
+          <div className="table-wrap"><table><thead><tr><th>Date</th><th>Catégorie</th><th style={{ textAlign: "right" }}>Montant HT</th></tr></thead><tbody>
+            {s.invoices.map((i, idx) => (<tr key={idx}><td>{formatDateFR(i.dayDate)}</td><td>{i.categorie}</td><td className="td-mono" style={{ textAlign: "right" }}>{formatCurrency(i.montant)}</td></tr>))}
+          </tbody></table></div>
+        </div>
+      )) : <div style={{ textAlign: "center", padding: 40, color: "var(--text-muted)" }}>Aucune facture sur cette période</div>}
+    </div>
+  );
+};
+
 export default function App() {
   const [user, setUser] = useState(() => {
     try {
@@ -966,6 +1122,7 @@ export default function App() {
   const [dbReady, setDbReady] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [toasts, setToasts] = useState([]);
+  const [suppliers, setSuppliers] = useState([]);
 
   const addToast = useCallback((message, type = "info") => { const id = Date.now(); setToasts((t) => [...t, { id, message, type }]); setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 4000); }, []);
 
@@ -975,6 +1132,7 @@ export default function App() {
     const { data: users } = await supabase.from("app_users").select("*").order("created_at");
     const { data: days } = await supabase.from("daily_data").select("*").order("date");
     const { data: invs } = await supabase.from("invoices").select("*").order("date");
+    const { data: supps } = await supabase.from("suppliers").select("*").order("name");
     const rList = (restos || []).map(r => ({
       id: r.id, name: r.name, address: r.address || "", color: r.color || "#4ADE80",
       objectives: r.objectives || DEFAULT_OBJ, dateOverrides: r.date_overrides || {}
@@ -997,6 +1155,7 @@ export default function App() {
     setRestaurants(rList);
     setAllUsers(uList);
     setRestoData(rd);
+    setSuppliers((supps || []).filter(s => s.active));
     setDbReady(true);
     return rList;
   }, []);
@@ -1107,12 +1266,13 @@ export default function App() {
     { id: "input", label: "Saisie du jour", icon: "input" },
     { id: "history", label: "Historique", icon: "history" },
     { id: "alerts", label: "Alertes & Emails", icon: "alert" },
+    { id: "suppliers", label: "Fournisseurs", icon: "truck" },
     { id: "objectives", label: "Objectifs CA", icon: "target" },
     ...(isAdmin ? [{ id: "restos", label: "Restaurants", icon: "settings" }] : []),
   ];
   if (!user) return <><style>{CSS}</style><LoginPage onLogin={setUser} /></>;
   if (!dbReady) return <><style>{CSS}</style><div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: "var(--bg-primary)", color: "var(--text-primary)", fontFamily: "Inter, sans-serif" }}><div style={{ textAlign: "center" }}><div style={{ fontSize: 28, fontWeight: 700, marginBottom: 12 }}>RestoPilot</div><div style={{ color: "var(--text-muted)" }}>Chargement des données...</div></div></div></>;
-  const pageTitles = { dashboard: "Tableau de bord", input: "Saisie quotidienne", history: "Historique", alerts: "Alertes & Emails", objectives: "Objectifs CA", restos: "Restaurants & Managers" };
+  const pageTitles = { dashboard: "Tableau de bord", input: "Saisie quotidienne", history: "Historique", alerts: "Alertes & Emails", suppliers: "Fournisseurs", objectives: "Objectifs CA", restos: "Restaurants & Managers" };
   return (
     <><style>{CSS}</style><ToastContainer toasts={toasts} />
     <div className="app-container">
@@ -1125,9 +1285,10 @@ export default function App() {
       <main className="main-content">
         <div className="top-bar"><div className="top-bar-left"><button className="burger" onClick={() => setSidebarOpen(true)}><Icon name="menu" size={22} /></button><div><div className="page-title">{pageTitles[page]}</div><div className="page-date">{formatDateFull(today())}</div></div></div><div className="top-bar-right"><RestoPicker restaurants={restaurants} current={currentRestoId} setCurrent={setCurrentRestoId} isAdmin={isAdmin} /><button className="btn btn-sm btn-primary" onClick={() => setPage("input")}><Icon name="plus" size={14} color="var(--bg-primary)" /> Saisie</button></div></div>
         {page === "dashboard" && <DashboardPage data={currentData} restoName={currentResto?.name || "RestoPilot"} />}
-        {page === "input" && <InputPage data={currentData} setData={setCurrentData} addToast={addToast} isAdmin={isAdmin} restoObjectives={currentResto?.objectives} restoOverrides={currentResto?.dateOverrides} />}
+        {page === "input" && <InputPage data={currentData} setData={setCurrentData} addToast={addToast} isAdmin={isAdmin} restoObjectives={currentResto?.objectives} restoOverrides={currentResto?.dateOverrides} suppliers={suppliers} />}
         {page === "history" && <HistoryPage data={currentData} />}
         {page === "alerts" && <AlertsPage data={currentData} addToast={addToast} />}
+        {page === "suppliers" && <SuppliersPage suppliers={suppliers} setSuppliers={setSuppliers} data={currentData} addToast={addToast} isAdmin={isAdmin} currentRestoId={currentRestoId} />}
         {page === "objectives" && <ObjectivesPage restaurants={restaurants} currentRestoId={currentRestoId} isAdmin={isAdmin} onUpdateObjectives={handleUpdateObjectives} addToast={addToast} />}
         {isAdmin && page === "restos" && <RestosPage restaurants={restaurants} users={allUsers} currentUser={user} onAddResto={handleAddResto} onDeleteResto={handleDeleteResto} onAddUser={handleAddUser} onUpdateUser={handleUpdateUser} onDeleteUser={handleDeleteUser} onResetFebruary={resetFebruaryData} addToast={addToast} />}
       </main>
