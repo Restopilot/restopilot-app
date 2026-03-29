@@ -37,15 +37,10 @@ export default async function handler(req, res) {
   try {
     const date = req.query.date || new Date().toISOString().slice(0, 10);
 
-    // Essai 1 : par numéro de journée Zelty
-    let result = await fetchOrders(`noz=${date}`);
+    // Utilise uniquement from/to avec timezone Paris (plus fiable que noz)
+    let result = await fetchOrders(`from=${date}T00:00:00%2B01:00&to=${date}T23:59:59%2B01:00`);
 
-    // Essai 2 : par plage horaire heure française
-    if (result.count === 0) {
-      result = await fetchOrders(`from=${date}T00:00:00%2B01:00&to=${date}T23:59:59%2B01:00`);
-    }
-
-    // Essai 3 : par plage horaire UTC
+    // Fallback UTC si résultat vide
     if (result.count === 0) {
       result = await fetchOrders(`from=${date}T00:00:00&to=${date}T23:59:59`);
     }
