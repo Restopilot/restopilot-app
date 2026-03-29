@@ -20,9 +20,9 @@ async function fetchOrders(queryParams) {
     if (orders.length === 0) break;
 
     for (const o of orders) {
-      if (o.status === "closed") {
+      if (o.status !== "cancelled") {
         totalTTC += o.price.final_amount_inc_tax;
-        totalHT += o.price.final_amount_exc_tax;
+        totalHT += o.prquel fichier ice.final_amount_exc_tax;
         count++;
       }
     }
