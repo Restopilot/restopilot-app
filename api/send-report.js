@@ -44,24 +44,26 @@ async function getRecipients() {
   return resp.json();
 }
 
-async function getObjectif(date) {
-  // First check if there's already data saved
-  const resp = await fetch(`${SUPABASE_URL}/rest/v1/daily_data?date=eq.${date}&select=objectif,restaurant_id`, {
+async function getRestoInfo() {
+  const resp = await fetch(`${SUPABASE_URL}/rest/v1/restaurants?select=id,name,objectives,date_overrides&limit=1`, {
     headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
   });
   const rows = await resp.json();
-  return rows?.[0]?.objectif || 0;
+  return rows?.[0] || { id: "r1", name: "Restaurant", objectives: {}, date_overrides: {} };
 }
 
-async function getRestoId() {
-  const resp = await fetch(`${SUPABASE_URL}/rest/v1/restaurants?select=id&limit=1`, {
-    headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
-  });
-  const rows = await resp.json();
-  return rows?.[0]?.id || "r1";
+function getObjectifFromResto(resto, date) {
+  // 1. Check date-specific override
+  const overrides = resto.date_overrides || {};
+  if (overrides[date] !== undefined) return overrides[date];
+  // 2. Fall back to weekly objective
+  const d = new Date(date + "T00:00:00");
+  const dow = (d.getDay() + 6) % 7; // 0=lundi, 6=dimanche
+  const objectives = resto.objectives || {};
+  return objectives[dow] || 0;
 }
 
-async function saveCAToSupabase(date, ca_ttc, ca_ht, restoId) {
+async function saveCAToSupabase(date, ca_ttc, ca_ht, restoId, restoObjectif) {
   // Check if entry exists
   const checkResp = await fetch(`${SUPABASE_URL}/rest/v1/daily_data?restaurant_id=eq.${restoId}&date=eq.${date}&select=id,objectif`, {
     headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
@@ -75,15 +77,16 @@ async function saveCAToSupabase(date, ca_ttc, ca_ht, restoId) {
       headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json", Prefer: "return=minimal" },
       body: JSON.stringify({ ca: ca_ttc, ca_ht: ca_ht }),
     });
-    return existing[0].objectif || 0;
+    // Return saved objectif, or restaurant objectif as fallback
+    return existing[0].objectif || restoObjectif;
   } else {
-    // Insert new entry
+    // Insert new entry with restaurant objectif
     await fetch(`${SUPABASE_URL}/rest/v1/daily_data`, {
       method: "POST",
       headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json", Prefer: "return=minimal" },
-      body: JSON.stringify({ restaurant_id: restoId, date, ca: ca_ttc, ca_ht: ca_ht, objectif: 0 }),
+      body: JSON.stringify({ restaurant_id: restoId, date, ca: ca_ttc, ca_ht: ca_ht, objectif: restoObjectif }),
     });
-    return 0;
+    return restoObjectif;
   }
 }
 
@@ -183,18 +186,21 @@ export default async function handler(req, res) {
       : new Date(now.getTime() - 86400000).toISOString().slice(0, 10);
 
     // Fetch data
-    const [ca, recipients, restoId] = await Promise.all([
+    const [ca, recipients, resto] = await Promise.all([
       getZeltyCA(targetDate),
       getRecipients(),
-      getRestoId(),
+      getRestoInfo(),
     ]);
 
-    // Save CA to Supabase (auto-enregistrement journalier)
-    const objectif = await saveCAToSupabase(targetDate, ca.ca_ttc, ca.ca_ht, restoId);
+    // Get restaurant objectif for this date (from weekly config + overrides)
+    const restoObjectif = getObjectifFromResto(resto, targetDate);
+
+    // Save CA to Supabase and get objectif (saved value or restaurant fallback)
+    const objectif = await saveCAToSupabase(targetDate, ca.ca_ttc, ca.ca_ht, resto.id, restoObjectif);
     ca.objectif = objectif;
 
     // Get monthly ratio
-    const monthlyRatio = await getMonthlyRatio(targetDate, restoId);
+    const monthlyRatio = await getMonthlyRatio(targetDate, resto.id);
 
     if (!recipients.length) {
       return res.status(200).json({ success: false, error: "Aucun destinataire actif" });
@@ -221,7 +227,7 @@ export default async function handler(req, res) {
     const emailResult = await emailResp.json();
 
     if (emailResp.ok) {
-      return res.status(200).json({ success: true, sent_to: recipients.length, date: targetDate, ca_ttc: ca.ca_ttc, ca_ht: ca.ca_ht, saved: true });
+      return res.status(200).json({ success: true, sent_to: recipients.length, date: targetDate, ca_ttc: ca.ca_ttc, ca_ht: ca.ca_ht, objectif, saved: true });
     } else {
       return res.status(200).json({ success: false, error: emailResult?.message || "Erreur Resend" });
     }
