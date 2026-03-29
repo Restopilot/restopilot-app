@@ -14,7 +14,7 @@ async function fetchOrders(date, queryParams) {
     const orders = data.orders || [];
     if (!orders.length) break;
     for (const o of orders) {
-      if (o.status === "closed") {
+      if (o.status !== "cancelled") {
         totalTTC += o.price.final_amount_inc_tax;
         totalHT += o.price.final_amount_exc_tax;
         count++;
