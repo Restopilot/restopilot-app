@@ -1,11 +1,24 @@
 const ZELTY_API_KEY = "MTk4NzU68xOv4nIh5aqjJBgJrc9kWwKDo84=";
 const ZELTY_API_URL = "https://api.zelty.fr/2.7/orders";
 
+function lastSundayOf(year, month) {
+  const last = new Date(Date.UTC(year, month, 0));
+  last.setUTCDate(last.getUTCDate() - last.getUTCDay());
+  return last;
+}
+
+function getParisOffset(date) {
+  const year = parseInt(date.slice(0, 4));
+  const month = parseInt(date.slice(5, 7));
+  const day = parseInt(date.slice(8, 10));
+  const dstStart = lastSundayOf(year, 3);
+  const dstEnd = lastSundayOf(year, 10);
+  const d = new Date(Date.UTC(year, month - 1, day));
+  return d >= dstStart && d < dstEnd ? "%2B02:00" : "%2B01:00";
+}
+
 async function fetchOrders(queryParams) {
-  let totalTTC = 0;
-  let totalHT = 0;
-  let count = 0;
-  let offset = 0;
+  let totalTTC = 0, totalHT = 0, count = 0, offset = 0;
   while (true) {
     const url = `${ZELTY_API_URL}?${queryParams}&limit=200&offset=${offset}`;
     const resp = await fetch(url, {
@@ -17,7 +30,7 @@ async function fetchOrders(queryParams) {
     const orders = data.orders || [];
     if (orders.length === 0) break;
     for (const o of orders) {
-      if (o.status !== "cancelled") {
+      if (o.status === "closed") {
         totalTTC += o.price.final_amount_inc_tax;
         totalHT += o.price.final_amount_exc_tax;
         count++;
@@ -34,13 +47,18 @@ export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
   if (req.method === "OPTIONS") return res.status(200).end();
+
   try {
     const date = req.query.date || new Date().toISOString().slice(0, 10);
+    const tz = getParisOffset(date);
 
-    // Utilise uniquement from/to avec timezone Paris (plus fiable que noz)
-    let result = await fetchOrders(`from=${date}T00:00:00%2B01:00&to=${date}T23:59:59%2B01:00`);
-
-    // Fallback UTC si résultat vide
+    // Tentative 1 : timezone Paris auto (CET hiver / CEST été)
+    let result = await fetchOrders(`from=${date}T00:00:00${tz}&to=${date}T23:59:59${tz}`);
+    // Tentative 2 : noz
+    if (result.count === 0) {
+      result = await fetchOrders(`noz=${date}`);
+    }
+    // Tentative 3 : fallback UTC
     if (result.count === 0) {
       result = await fetchOrders(`from=${date}T00:00:00&to=${date}T23:59:59`);
     }
