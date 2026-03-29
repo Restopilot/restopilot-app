@@ -3,7 +3,10 @@ const ZELTY_API_KEY = "MTk4NzU68xOv4nIh5aqjJBgJrc9kWwKDo84=";
 const SUPABASE_URL = "https://yhvbnlgowccixqslijia.supabase.co";
 const SUPABASE_KEY = "sb_publishable_rURgUoNVrGxQm4e6OjrxsA_E5Skv2Tl";
 
-async function fetchOrders(date, queryParams) {
+// Afrik n Fusion uniquement — Waffle Factory sera ajouté plus tard
+const AFRIK_FUSION_ID = "r1772490949804";
+
+async function fetchOrders(queryParams) {
   let totalTTC = 0, totalHT = 0, count = 0, offset = 0;
   while (true) {
     const url = `https://api.zelty.fr/2.7/orders?${queryParams}&limit=200&offset=${offset}`;
@@ -27,12 +30,12 @@ async function fetchOrders(date, queryParams) {
 }
 
 async function getZeltyCA(date) {
-  let result = await fetchOrders(date, `noz=${date}`);
+  let result = await fetchOrders(`noz=${date}`);
   if (result.count === 0) {
-    result = await fetchOrders(date, `from=${date}T00:00:00%2B01:00&to=${date}T23:59:59%2B01:00`);
+    result = await fetchOrders(`from=${date}T00:00:00%2B01:00&to=${date}T23:59:59%2B01:00`);
   }
   if (result.count === 0) {
-    result = await fetchOrders(date, `from=${date}T00:00:00&to=${date}T23:59:59`);
+    result = await fetchOrders(`from=${date}T00:00:00&to=${date}T23:59:59`);
   }
   return { ca_ttc: Math.round(result.totalTTC) / 100, ca_ht: Math.round(result.totalHT) / 100, orders_count: result.count };
 }
@@ -45,42 +48,36 @@ async function getRecipients() {
 }
 
 async function getRestoInfo() {
-  const resp = await fetch(`${SUPABASE_URL}/rest/v1/restaurants?select=id,name,objectives,date_overrides&limit=1`, {
+  const resp = await fetch(`${SUPABASE_URL}/rest/v1/restaurants?id=eq.${AFRIK_FUSION_ID}&select=id,name,objectives,date_overrides`, {
     headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
   });
   const rows = await resp.json();
-  return rows?.[0] || { id: "r1", name: "Restaurant", objectives: {}, date_overrides: {} };
+  return rows?.[0] || { id: AFRIK_FUSION_ID, name: "Afrik n Fusion", objectives: {}, date_overrides: {} };
 }
 
 function getObjectifFromResto(resto, date) {
-  // 1. Check date-specific override
   const overrides = resto.date_overrides || {};
   if (overrides[date] !== undefined) return overrides[date];
-  // 2. Fall back to weekly objective
   const d = new Date(date + "T00:00:00");
-  const dow = (d.getDay() + 6) % 7; // 0=lundi, 6=dimanche
+  const dow = (d.getDay() + 6) % 7;
   const objectives = resto.objectives || {};
   return objectives[dow] || 0;
 }
 
 async function saveCAToSupabase(date, ca_ttc, ca_ht, restoId, restoObjectif) {
-  // Check if entry exists
   const checkResp = await fetch(`${SUPABASE_URL}/rest/v1/daily_data?restaurant_id=eq.${restoId}&date=eq.${date}&select=id,objectif`, {
     headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
   });
   const existing = await checkResp.json();
 
   if (existing && existing.length > 0) {
-    // Update existing entry (keep objectif)
     await fetch(`${SUPABASE_URL}/rest/v1/daily_data?id=eq.${existing[0].id}`, {
       method: "PATCH",
       headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json", Prefer: "return=minimal" },
       body: JSON.stringify({ ca: ca_ttc, ca_ht: ca_ht }),
     });
-    // Return saved objectif, or restaurant objectif as fallback
     return existing[0].objectif || restoObjectif;
   } else {
-    // Insert new entry with restaurant objectif
     await fetch(`${SUPABASE_URL}/rest/v1/daily_data`, {
       method: "POST",
       headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json", Prefer: "return=minimal" },
@@ -131,7 +128,7 @@ function buildEmailHTML(date, ca, monthlyRatio) {
 <div style="max-width:520px;margin:0 auto;background:#fff;border-radius:10px;overflow:hidden;border:1px solid #E2E8F0">
   <div style="background:#1B2A4A;padding:24px 28px">
     <div style="color:#fff;font-size:20px;font-weight:700">RestoPilot</div>
-    <div style="color:rgba(255,255,255,0.6);font-size:12px;margin-top:2px">RAPPORT QUOTIDIEN</div>
+    <div style="color:rgba(255,255,255,0.6);font-size:12px;margin-top:2px">RAPPORT QUOTIDIEN — AFRIK N FUSION</div>
   </div>
   <div style="padding:28px">
     <div style="font-size:14px;color:#94A3B8;margin-bottom:4px">Rapport du</div>
@@ -178,29 +175,23 @@ export default async function handler(req, res) {
   if (req.method === "OPTIONS") return res.status(200).end();
 
   try {
-    // GET = cron (yesterday), POST with test=true = test (today)
     const isTest = req.method === "POST" && req.body?.test === true;
     const now = new Date();
     const targetDate = isTest
       ? now.toISOString().slice(0, 10)
       : new Date(now.getTime() - 86400000).toISOString().slice(0, 10);
 
-    // Fetch data
     const [ca, recipients, resto] = await Promise.all([
       getZeltyCA(targetDate),
       getRecipients(),
       getRestoInfo(),
     ]);
 
-    // Get restaurant objectif for this date (from weekly config + overrides)
     const restoObjectif = getObjectifFromResto(resto, targetDate);
-
-    // Save CA to Supabase and get objectif (saved value or restaurant fallback)
-    const objectif = await saveCAToSupabase(targetDate, ca.ca_ttc, ca.ca_ht, resto.id, restoObjectif);
+    const objectif = await saveCAToSupabase(targetDate, ca.ca_ttc, ca.ca_ht, AFRIK_FUSION_ID, restoObjectif);
     ca.objectif = objectif;
 
-    // Get monthly ratio
-    const monthlyRatio = await getMonthlyRatio(targetDate, resto.id);
+    const monthlyRatio = await getMonthlyRatio(targetDate, AFRIK_FUSION_ID);
 
     if (!recipients.length) {
       return res.status(200).json({ success: false, error: "Aucun destinataire actif" });
@@ -209,17 +200,13 @@ export default async function handler(req, res) {
     const html = buildEmailHTML(targetDate, ca, monthlyRatio);
     const dateFR = new Date(targetDate + "T12:00:00").toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" });
 
-    // Send via Resend
     const emailResp = await fetch("https://api.resend.com/emails", {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${RESEND_API_KEY}`,
-        "Content-Type": "application/json",
-      },
+      headers: { Authorization: `Bearer ${RESEND_API_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         from: "RestoPilot <rapport@afrikngroup.eu>",
         to: recipients.map((r) => r.email),
-        subject: `Rapport CA – ${dateFR}`,
+        subject: `Rapport CA Afrik n Fusion – ${dateFR}`,
         html,
       }),
     });
