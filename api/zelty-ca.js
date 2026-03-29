@@ -6,7 +6,6 @@ async function fetchOrders(queryParams) {
   let totalHT = 0;
   let count = 0;
   let offset = 0;
-
   while (true) {
     const url = `${ZELTY_API_URL}?${queryParams}&limit=200&offset=${offset}`;
     const resp = await fetch(url, {
@@ -16,21 +15,17 @@ async function fetchOrders(queryParams) {
     raw = raw.replace(/[\x00-\x1f]/g, " ");
     const data = JSON.parse(raw);
     const orders = data.orders || [];
-
     if (orders.length === 0) break;
-
     for (const o of orders) {
       if (o.status !== "cancelled") {
         totalTTC += o.price.final_amount_inc_tax;
-        totalHT += o.prquel fichier ice.final_amount_exc_tax;
+        totalHT += o.price.final_amount_exc_tax;
         count++;
       }
     }
-
     if (orders.length < 200) break;
     offset += 200;
   }
-
   return { totalTTC, totalHT, count };
 }
 
@@ -38,21 +33,19 @@ export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-
   if (req.method === "OPTIONS") return res.status(200).end();
-
   try {
     const date = req.query.date || new Date().toISOString().slice(0, 10);
 
-    // Try noz first (works during active service)
+    // Essai 1 : par numéro de journée Zelty
     let result = await fetchOrders(`noz=${date}`);
 
-    // If noz returns 0, fallback to from/to with timezone
+    // Essai 2 : par plage horaire heure française
     if (result.count === 0) {
       result = await fetchOrders(`from=${date}T00:00:00%2B01:00&to=${date}T23:59:59%2B01:00`);
     }
 
-    // If still 0, try from/to without timezone
+    // Essai 3 : par plage horaire UTC
     if (result.count === 0) {
       result = await fetchOrders(`from=${date}T00:00:00&to=${date}T23:59:59`);
     }
