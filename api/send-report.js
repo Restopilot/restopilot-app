@@ -30,10 +30,8 @@ async function fetchOrders(queryParams) {
 }
 
 async function getZeltyCA(date) {
-  let result = await fetchOrders(`noz=${date}`);
-  if (result.count === 0) {
-    result = await fetchOrders(`from=${date}T00:00:00%2B01:00&to=${date}T23:59:59%2B01:00`);
-  }
+  // Uniquement from/to — le noz est un ID interne Zelty, pas une date
+  let result = await fetchOrders(`from=${date}T00:00:00%2B01:00&to=${date}T23:59:59%2B01:00`);
   if (result.count === 0) {
     result = await fetchOrders(`from=${date}T00:00:00&to=${date}T23:59:59`);
   }
@@ -133,13 +131,11 @@ function buildEmailHTML(date, ca, monthlyRatio) {
   <div style="padding:28px">
     <div style="font-size:14px;color:#94A3B8;margin-bottom:4px">Rapport du</div>
     <div style="font-size:18px;font-weight:600;color:#1B2A4A;margin-bottom:24px">${dateFR}</div>
-    
     <div style="background:#F4F6F9;border-radius:8px;padding:24px;text-align:center;margin-bottom:20px">
       <div style="font-size:12px;color:#94A3B8;text-transform:uppercase;letter-spacing:0.5px">CA du jour</div>
       <div style="font-size:36px;font-weight:700;color:#1A8C5B;margin:4px 0">${formatEUR(ca.ca_ttc)}</div>
       <div style="font-size:13px;color:#475569">HT : ${formatEUR(ca.ca_ht)} · ${ca.orders_count} commandes</div>
     </div>
-
     <div style="display:flex;gap:12px;margin-bottom:20px">
       <div style="flex:1;background:#F4F6F9;border-radius:8px;padding:16px;text-align:center">
         <div style="font-size:11px;color:#94A3B8;text-transform:uppercase">Objectif</div>
@@ -150,11 +146,9 @@ function buildEmailHTML(date, ca, monthlyRatio) {
         <div style="font-size:20px;font-weight:700;color:${isAbove ? '#1A8C5B' : '#D9536B'};margin-top:4px">${isAbove ? '+' : ''}${formatEUR(ecart)}</div>
       </div>
     </div>
-
     <div style="text-align:center;font-size:14px;color:#475569;padding:12px;background:${isAbove ? '#f0fdf4' : '#fef2f2'};border-radius:8px">
       ${emoji} ${isAbove ? 'Au-dessus' : 'En-dessous'} de l'objectif ${ca.objectif > 0 ? '(' + (((ca.ca_ttc / ca.objectif) * 100).toFixed(1)) + '%)' : ''}
     </div>
-
     ${monthlyRatio !== null ? `<div style="margin-top:16px;padding:16px;background:#F4F6F9;border-radius:8px;text-align:center">
       <div style="font-size:11px;color:#94A3B8;text-transform:uppercase;letter-spacing:0.5px">Ratio matières — mois en cours</div>
       <div style="font-size:28px;font-weight:700;color:${monthlyRatio > 28 ? '#D9536B' : '#1A8C5B'};margin:4px 0">${monthlyRatio.toFixed(1)}%</div>
