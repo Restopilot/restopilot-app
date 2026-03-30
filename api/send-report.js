@@ -58,7 +58,7 @@ async function getZeltyCA(date) {
 }
 
 async function getRecipients() {
-  const resp = await fetch(`${SUPABASE_URL}/rest/v1/alert_recipients?active=eq.true&select=email,name`, {
+  const resp = await fetch(`${SUPABASE_URL}/rest/v1/restaurants?select=id,name,objectives,date_overrides&id=eq.r1772490949804`, {
     headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
   });
   return resp.json();
