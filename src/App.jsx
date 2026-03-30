@@ -501,7 +501,7 @@ const exportPDF = (data, restoName, periodLabel) => {
   setTimeout(() => w.print(), 300);
 };
 
-const DashboardPage = ({ data, restoName }) => {
+const DashboardPage = ({ data, restoName, restoObjectives, restoOverrides }) => {
   const [period, setPeriod] = useState("month");
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
@@ -540,7 +540,8 @@ const DashboardPage = ({ data, restoName }) => {
   const todayData = data.find(d => d.date === today());
   const liveCa = zeltyLive ? zeltyLive.ca_ttc : 0;
   const liveCaHt = zeltyLive ? zeltyLive.ca_ht : 0;
-  const latest = todayData || { date: today(), ca: liveCa, ca_ht: liveCaHt, objectif: 0, invoices: [] };
+  const todayObj = restoOverrides?.[today()] ?? restoObjectives?.[getDow(today())] ?? 0;
+  const latest = todayData || { date: today(), ca: liveCa, ca_ht: liveCaHt, objectif: todayObj, invoices: [] };
 
   const stats = useMemo(() => {
     const totalAchats = latest.invoices.reduce((s, i) => s + i.montant, 0);
@@ -1283,7 +1284,7 @@ export default function App() {
       </aside>
       <main className="main-content">
         <div className="top-bar"><div className="top-bar-left"><button className="burger" onClick={() => setSidebarOpen(true)}><Icon name="menu" size={22} /></button><div><div className="page-title">{pageTitles[page]}</div><div className="page-date">{formatDateFull(today())}</div></div></div><div className="top-bar-right"><RestoPicker restaurants={restaurants} current={currentRestoId} setCurrent={setCurrentRestoId} isAdmin={isAdmin} /><button className="btn btn-sm btn-primary" onClick={() => setPage("input")}><Icon name="plus" size={14} color="var(--bg-primary)" /> Saisie</button></div></div>
-        {page === "dashboard" && <DashboardPage data={currentData} restoName={currentResto?.name || "RestoPilot"} />}
+        {page === "dashboard" && <DashboardPage data={currentData} restoName={currentResto?.name || "RestoPilot"} restoObjectives={currentResto?.objectives} restoOverrides={currentResto?.dateOverrides} />}
         {page === "input" && <InputPage data={currentData} setData={setCurrentData} addToast={addToast} isAdmin={isAdmin} restoObjectives={currentResto?.objectives} restoOverrides={currentResto?.dateOverrides} suppliers={suppliers} />}
         {page === "history" && <HistoryPage data={currentData} />}
         {page === "alerts" && <AlertsPage data={currentData} addToast={addToast} />}
