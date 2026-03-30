@@ -2,6 +2,7 @@ const RESEND_API_KEY = "re_bkga53Ts_Dd5csNTcYDVyqskq58bgqvBi";
 const ZELTY_API_KEY = "MTk4NzU68xOv4nIh5aqjJBgJrc9kWwKDo84=";
 const SUPABASE_URL = "https://yhvbnlgowccixqslijia.supabase.co";
 const SUPABASE_KEY = "sb_publishable_rURgUoNVrGxQm4e6OjrxsA_E5Skv2Tl";
+const AFRIK_FUSION_ID = "r1772490949804";
 
 function lastSundayOf(year, month) {
   const last = new Date(Date.UTC(year, month, 0));
@@ -44,13 +45,10 @@ async function fetchOrders(date, queryParams) {
 
 async function getZeltyCA(date) {
   const tz = getParisOffset(date);
-  // Tentative 1 : timezone Paris auto (CET hiver / CEST été)
   let result = await fetchOrders(date, `from=${date}T00:00:00${tz}&to=${date}T23:59:59${tz}`);
-  // Tentative 2 : noz
   if (result.count === 0) {
     result = await fetchOrders(date, `noz=${date}`);
   }
-  // Tentative 3 : fallback UTC
   if (result.count === 0) {
     result = await fetchOrders(date, `from=${date}T00:00:00&to=${date}T23:59:59`);
   }
@@ -58,18 +56,18 @@ async function getZeltyCA(date) {
 }
 
 async function getRecipients() {
-  const resp = await fetch(`${SUPABASE_URL}/rest/v1/restaurants?select=id,name,objectives,date_overrides&id=eq.r1772490949804`, {
+  const resp = await fetch(`${SUPABASE_URL}/rest/v1/alert_recipients?active=eq.true&select=email,name`, {
     headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
   });
   return resp.json();
 }
 
 async function getRestoInfo() {
-  const resp = await fetch(`${SUPABASE_URL}/rest/v1/restaurants?select=id,name,objectives,date_overrides&limit=1`, {
+  const resp = await fetch(`${SUPABASE_URL}/rest/v1/restaurants?select=id,name,objectives,date_overrides&id=eq.${AFRIK_FUSION_ID}`, {
     headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
   });
   const rows = await resp.json();
-  return rows?.[0] || { id: "r1", name: "Restaurant", objectives: {}, date_overrides: {} };
+  return rows?.[0] || { id: AFRIK_FUSION_ID, name: "Afrik N Fusion", objectives: {}, date_overrides: {} };
 }
 
 function getObjectifFromResto(resto, date) {
@@ -145,7 +143,7 @@ function buildEmailHTML(date, ca, monthlyRatio) {
 <div style="max-width:520px;margin:0 auto;background:#fff;border-radius:10px;overflow:hidden;border:1px solid #E2E8F0">
   <div style="background:#1B2A4A;padding:24px 28px">
     <div style="color:#fff;font-size:20px;font-weight:700">RestoPilot</div>
-    <div style="color:rgba(255,255,255,0.6);font-size:12px;margin-top:2px">RAPPORT QUOTIDIEN</div>
+    <div style="color:rgba(255,255,255,0.6);font-size:12px;margin-top:2px">RAPPORT QUOTIDIEN — AFRIK N FUSION</div>
   </div>
   <div style="padding:28px">
     <div style="font-size:14px;color:#94A3B8;margin-bottom:4px">Rapport du</div>
@@ -226,7 +224,7 @@ export default async function handler(req, res) {
       body: JSON.stringify({
         from: "RestoPilot <rapport@afrikngroup.eu>",
         to: recipients.map((r) => r.email),
-        subject: `Rapport CA – ${dateFR}`,
+        subject: `Rapport CA Afrik N Fusion – ${dateFR}`,
         html,
       }),
     });
