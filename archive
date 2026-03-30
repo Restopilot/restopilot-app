@@ -1,0 +1,175 @@
+# 🍽️ RESTO PILOT — Archive Projet Complète
+
+## Résumé du projet
+
+RestoPilot est une application web de gestion multi-restaurants développée pour Lloyd (AFRIK N GROUP). Elle permet le suivi quotidien du CA, des ratios matières premières, des objectifs, des factures fournisseurs, avec envoi automatique de rapports par email.
+
+**URL production** : https://restopilot-app.vercel.app
+**GitHub** : https://github.com/Restopilot/restopilot-app
+**Supabase** : https://supabase.com/dashboard/project/yhvbnlgowccixqslijia
+**Vercel** : restopilot-5127
+
+---
+
+## Architecture technique
+
+| Élément | Service | Détails |
+|---------|---------|---------|
+| Frontend | React + Vite | Single-page app, thème dark/light |
+| Hébergement | Vercel (gratuit, plan Hobby) | Auto-deploy via GitHub |
+| Base de données | Supabase PostgreSQL | Tables: restaurants, app_users, daily_data, invoices, suppliers, alert_recipients |
+| Emails | Resend | Rapport quotidien automatique à 01h00 |
+| Caisse | Zelty API | Import automatique du CA TTC/HT |
+| Planning RH | Combo (ex-Snapshift) | Intégration en cours — heures de production |
+| Cron | cron-job.org | Déclenchement du rapport email (Vercel Hobby ne supporte pas les crons natifs) |
+
+---
+
+## Fichiers principaux
+
+- `src/App.jsx` — Application complète
+- `api/send-report.js` — Envoi email quotidien + sauvegarde CA Zelty
+- `api/zelty-ca.js` — API proxy pour récupérer le CA depuis Zelty
+
+---
+
+## Fonctionnalités implémentées
+
+### V1 (session initiale)
+- ✅ Dashboard avec KPI : CA du jour, ratio matières, atteinte objectif
+- ✅ Saisie quotidienne : CA + factures fournisseurs par catégorie
+- ✅ Historique avec filtres 7j/14j/30j
+- ✅ Système d'alertes (seuil ratio 28%)
+- ✅ Multi-restaurants avec sélecteur admin
+- ✅ Gestion des managers (création/suppression/assignation)
+- ✅ Objectifs hebdomadaires par jour + exceptions par date
+- ✅ Design Apple (iOS blue, glassmorphism, responsive)
+
+### V2 (évolutions)
+- ✅ CA HT et CA TTC (2 champs, calcul auto TVA 10%)
+- ✅ Ratio calculé HT/HT (achats HT / CA HT)
+- ✅ CA mensuel dans le dashboard
+- ✅ Session persistante "Rester connecté"
+- ✅ Connexion Supabase (données persistées)
+- ✅ Déploiement Vercel + GitHub
+
+### V3 (version actuelle en production)
+- ✅ Thème dark/light avec toggle
+- ✅ Intégration Zelty (import auto CA depuis la caisse)
+- ✅ Rapport email quotidien via Resend (01h00)
+- ✅ Gestion des destinataires d'alertes
+- ✅ Page Fournisseurs (ajout, stats par période, export CSV/PDF)
+- ✅ Export CSV et PDF du dashboard
+- ✅ Filtres période : semaine/mois/trimestre/personnalisé
+- ✅ Graphique tendance ratio mensuel (12 mois)
+- ✅ KPI : écart objectif, atteinte moyenne, achats période
+- ✅ Zone de danger (RAZ données)
+- ✅ Modification mot de passe utilisateurs
+
+### Corrections du 30 mars 2026
+- ✅ **Bug timezone CET/CEST dans `zelty-ca.js`** : le passage à l'heure d'été (CEST = UTC+2) cassait la récupération du CA live. Corrigé avec détection dynamique via `getParisOffset()` / `lastSundayOf()`. Ordre des tentatives : timezone Paris auto → noz → UTC.
+- ✅ **Même fix appliqué dans `send-report.js`** : même logique de détection dynamique + filtre statut `=== "closed"` (au lieu de `!== "cancelled"`).
+- ✅ **Cron email mis en place via cron-job.org** : Vercel plan Hobby ne supporte pas les crons natifs. Le cron est configuré sur https://cron-job.org — tous les jours à 23h00 UTC (= 01h00 Paris en été). URL : `https://restopilot-app.vercel.app/api/send-report` en POST.
+
+### En cours / À venir
+- 🔄 **Intégration API Combo (production horaire)** : en attente de la documentation du format d'authentification de la part du support Combo (Naïmi). Objectif : afficher les heures travaillées dans le dashboard et dans le rapport email quotidien. Uniquement pour Afrik'n Fusion dans un premier temps.
+
+---
+
+## Clés API (référence)
+
+- **Supabase URL** : https://yhvbnlgowccixqslijia.supabase.co
+- **Supabase Key** : sb_publishable_rURgUoNVrGxQm4e6OjrxsA_E5Skv2Tl
+- **GitHub Token** : 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
+- **Resend** : re_bkga53Ts_Dd5csNTcYDVyqskq58bgqvBi
+- **Zelty** : MTk4NzU68xOv4nIh5aqjJBgJrc9kWwKDo84=
+
+### Clés API Combo (planning RH)
+- **Afrik'n Fusion Créteil Soleil** (société AFRIK N CRETEIL) : `NtlQR2cKMITVgAneX3xK5JuWmBZWDX0VSr-2TLne7Sw`
+- **Waffle Factory Cergy** (société Waffle Cergy) : `9rr_XzyWSeZpxX42nNCuHbk0JG9RgnSg1WQywZHIQN4`
+- **Waffle Factory Belle Épine** (société LPBS) : `FSowgEZYNvwOM0t6mchemjYtMc-9YxatfcfRrdEZetk`
+
+### Partner IDs Combo
+- **Afrik'n Fusion Créteil** : `c66b876f-fccc-40bf-9743-769be1091257`
+- Waffle Factory Cergy : à récupérer
+- Waffle Factory Belle Épine : à récupérer
+
+---
+
+## Prochaines étapes
+
+### Intégration Combo (production horaire)
+1. Attendre réponse support Combo (format auth + endpoint exact)
+2. Créer `api/combo-hours.js` — proxy API Combo
+3. Ajouter section "Production horaire" dans le dashboard (heures prévues / travaillées)
+4. Ajouter les heures dans le rapport email quotidien
+5. Étendre à Waffle Factory quand leurs partner IDs seront récupérés
+
+### Multi-restaurant Zelty
+Chaque restaurant doit avoir sa propre clé API Zelty pour que l'import CA soit indépendant :
+
+1. Ajouter colonne `zelty_api_key` dans la table `restaurants` sur Supabase
+2. Modifier `api/zelty-ca.js` pour accepter un paramètre `resto_id` et chercher la bonne clé
+3. Modifier `api/send-report.js` pour boucler sur tous les restaurants et envoyer un rapport par resto
+4. Modifier `App.jsx` InputPage pour passer le `currentRestoId` à l'appel `/api/zelty-ca`
+
+### Autres idées évoquées
+- Notifications push mobile
+- Domaine personnalisé (restopilot.fr)
+- Emails automatiques d'alerte instantanée (pas seulement quotidien)
+
+---
+
+## Comment déployer une mise à jour
+
+### Méthode GitHub (directe)
+1. Ouvrir le fichier sur https://github.com/Restopilot/restopilot-app
+2. Cliquer le crayon (Edit)
+3. Modifier le code
+4. Cliquer "Commit changes"
+5. Vercel redéploie automatiquement (~30 secondes)
+
+### Méthode Terminal (si le dossier existe sur le Mac)
+```bash
+cd ~/Desktop/restopilot
+git add .
+git commit -m "description de la modif"
+git push
+```
+
+---
+
+## Contacts / Comptes
+
+- **GitHub** : Restopilot (https://github.com/Restopilot)
+- **Vercel** : restopilot-5127
+- **Supabase** : Restopilot's Org
+- **Email expéditeur** : rapport@afrikngroup.eu
+- **Support Combo** : Naïmi (support Combo)
+- **Cron** : https://cron-job.org (compte à conserver)
+
+---
+
+## Structure de la base Supabase
+
+### Table `restaurants`
+id, name, address, color, objectives (JSONB), date_overrides (JSONB), created_at
+
+### Table `app_users`
+id, email, password, name, role (admin/manager), restaurant_id, created_at
+
+### Table `daily_data`
+id, restaurant_id, date, ca, ca_ht, objectif, updated_at
+
+### Table `invoices`
+id, restaurant_id, date, fournisseur, montant, categorie
+
+### Table `suppliers`
+id, name, category, restaurant_id, active
+
+### Table `alert_recipients`
+id, email, name, active
+
+---
+
+*Archive créée le 29 mars 2026 — mise à jour le 30 mars 2026*
