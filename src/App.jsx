@@ -514,7 +514,7 @@ const DashboardPage = ({ data, restoName, restoObjectives, restoOverrides }) => 
       .catch(() => {});
   }, []);
 
-  const periodLabel = period === "week" ? "Semaine en cours" : period === "month" ? "Mois en cours" : period === "quarter" ? "Trimestre en cours" : "Période personnalisée";
+  const periodLabel = period === "week" ? "Semaine en cours" : period === "month" ? "Mois en cours" : period === "quarter" ? "Trimestre en cours" : period === "year" ? "Année en cours" : "Période personnalisée";
 
   const filteredData = useMemo(() => {
     const now = new Date();
@@ -530,6 +530,9 @@ const DashboardPage = ({ data, restoName, restoObjectives, restoOverrides }) => 
       const qm = Math.floor(now.getMonth() / 3) * 3;
       const qs = new Date(now.getFullYear(), qm, 1);
       return data.filter(d => { const dt = new Date(d.date + "T00:00:00"); return dt >= qs; });
+    }
+    if (period === "year") {
+      return data.filter(d => { const dt = new Date(d.date + "T00:00:00"); return dt.getFullYear() === now.getFullYear(); });
     }
     if (period === "custom" && customFrom && customTo) {
       return data.filter(d => d.date >= customFrom && d.date <= customTo);
@@ -597,6 +600,7 @@ const DashboardPage = ({ data, restoName, restoObjectives, restoOverrides }) => 
           <button style={periodBtnStyle("week")} onClick={() => setPeriod("week")}>Semaine</button>
           <button style={periodBtnStyle("month")} onClick={() => setPeriod("month")}>Mois</button>
           <button style={periodBtnStyle("quarter")} onClick={() => setPeriod("quarter")}>Trimestre</button>
+          <button style={periodBtnStyle("year")} onClick={() => setPeriod("year")}>Année</button>
           <button style={periodBtnStyle("custom")} onClick={() => setPeriod("custom")}>Personnalisé</button>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
