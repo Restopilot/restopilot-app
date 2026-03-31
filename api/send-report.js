@@ -21,7 +21,14 @@ function getParisOffset(date) {
 }
 
 function getParisDateString(now) {
-  return new Date(now.toLocaleString("en-CA", { timeZone: "Europe/Paris" })).toISOString().slice(0, 10);
+  const parts = new Intl.DateTimeFormat("fr-FR", {
+    timeZone: "Europe/Paris",
+    year: "numeric", month: "2-digit", day: "2-digit"
+  }).formatToParts(now);
+  const y = parts.find(p => p.type === "year").value;
+  const m = parts.find(p => p.type === "month").value;
+  const d = parts.find(p => p.type === "day").value;
+  return `${y}-${m}-${d}`;
 }
 
 async function fetchOrders(date, queryParams) {
@@ -199,7 +206,7 @@ export default async function handler(req, res) {
     try { body = typeof req.body === "string" ? JSON.parse(req.body) : (req.body || {}); } catch(e) {}
     const isTest = req.method === "POST" && body.test === true;
 
-    // Toujours la date du jour en heure Paris
+    // Date du jour en heure Paris (pas de décalage UTC)
     const targetDate = getParisDateString(now);
 
     const [ca, recipients, resto] = await Promise.all([
