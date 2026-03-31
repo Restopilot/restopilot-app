@@ -1104,6 +1104,139 @@ const SuppliersPage = ({ suppliers, setSuppliers, data, addToast, isAdmin, curre
   );
 };
 
+
+const InventoryPage = ({ data, currentRestoId, addToast }) => {
+  const [inventories, setInventories] = useState([]);
+  const [newDate, setNewDate] = useState('');
+  const [newValue, setNewValue] = useState('');
+  const [newNotes, setNewNotes] = useState('');
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    supabase.from('inventory').select('*').eq('restaurant_id', currentRestoId).order('date', { ascending: false })
+      .then(({ data: rows }) => { if (rows) setInventories(rows); setLoading(false); });
+  }, [currentRestoId]);
+
+  const addInventory = async () => {
+    if (!newDate || !newValue) { addToast('Veuillez remplir la date et la valeur', 'error'); return; }
+    const entry = { restaurant_id: currentRestoId, date: newDate, valeur_stock: parseFloat(newValue), notes: newNotes || null };
+    const { data: row, error } = await supabase.from('inventory').upsert(entry, { onConflict: 'restaurant_id,date' }).select().single();
+    if (error) { addToast('Erreur : ' + error.message, 'error'); return; }
+    setInventories(prev => { const filtered = prev.filter(i => i.date !== newDate); return [row, ...filtered].sort((a,b) => b.date.localeCompare(a.date)); });
+    setNewDate(''); setNewValue(''); setNewNotes('');
+    addToast('Inventaire enregistré ✓', 'success');
+  };
+
+  const removeInventory = async (id) => {
+    if (!window.confirm('Supprimer cet inventaire ?')) return;
+    await supabase.from('inventory').delete().eq('id', id);
+    setInventories(prev => prev.filter(i => i.id !== id));
+    addToast('Inventaire supprimé', 'info');
+  };
+
+  // Calcul ratio corrigé par mois
+  const monthlyStats = useMemo(() => {
+    const months = {};
+    data.forEach(d => {
+      const m = d.date.substring(0, 7);
+      if (!months[m]) months[m] = { ca: 0, ca_ht: 0, achats: 0 };
+      months[m].ca += d.ca;
+      months[m].ca_ht += d.ca_ht || Math.round(d.ca / 1.1);
+      months[m].achats += d.invoices.reduce((s, i) => s + i.montant, 0);
+    });
+
+    return Object.entries(months).sort((a,b) => b[0].localeCompare(a[0])).map(([month, stats]) => {
+      const [y, mo] = month.split('-');
+      const label = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'][parseInt(mo)-1] + ' ' + y;
+
+      // Trouver inventaire fin de ce mois et fin du mois précédent
+      const invFin = inventories.find(i => i.date.startsWith(month));
+      const prevMonth = new Date(parseInt(y), parseInt(mo)-2, 1);
+      const prevKey = prevMonth.getFullYear() + '-' + String(prevMonth.getMonth()+1).padStart(2,'0');
+      const invDebut = inventories.find(i => i.date.startsWith(prevKey));
+
+      const ratioBrut = stats.ca_ht > 0 ? (stats.achats / stats.ca_ht) * 100 : 0;
+
+      let ratioCorrige = null;
+      if (invFin && invDebut) {
+        const consommation = stats.achats + invDebut.valeur_stock - invFin.valeur_stock;
+        ratioCorrige = stats.ca_ht > 0 ? (consommation / stats.ca_ht) * 100 : 0;
+      }
+
+      return { month, label, ...stats, invFin, invDebut, ratioBrut, ratioCorrige };
+    });
+  }, [data, inventories]);
+
+  return (
+    <div className="content-area">
+      <div className="grid-2" style={{ alignItems: 'start' }}>
+        <div>
+          <div className="card" style={{ marginBottom: 20 }}>
+            <div className="card-header"><div className="card-title">Saisir un inventaire</div></div>
+            <div className="form-group"><label className="form-label">Date de l'inventaire</label><input className="form-input" type="date" value={newDate} onChange={e => setNewDate(e.target.value)} /></div>
+            <div className="form-group"><label className="form-label">Valeur du stock (€ HT)</label><input className="form-input" type="number" value={newValue} onChange={e => setNewValue(e.target.value)} placeholder="3 500" min="0" step="0.01" /></div>
+            <div className="form-group"><label className="form-label">Notes (optionnel)</label><input className="form-input" type="text" value={newNotes} onChange={e => setNewNotes(e.target.value)} placeholder="Inventaire fin mars..." /></div>
+            <button className="btn btn-primary" onClick={addInventory} style={{ width: '100%', justifyContent: 'center' }}><Icon name="check" size={16} color="var(--bg-primary)" /> Enregistrer l'inventaire</button>
+          </div>
+
+          <div className="card">
+            <div className="card-header"><div className="card-title">Historique des inventaires</div><div className="card-subtitle">{inventories.length} entrée(s)</div></div>
+            {loading ? <div style={{ textAlign: 'center', padding: 24, color: 'var(--text-muted)' }}>Chargement...</div> :
+            inventories.length > 0 ? inventories.map(inv => (
+              <div key={inv.id} className="invoice-item" style={{ marginBottom: 8 }}>
+                <div className="invoice-left">
+                  <div className="invoice-icon" style={{ background: 'var(--accent-bg)', fontSize: 18 }}>📦</div>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 600 }}>{formatDateFull(inv.date)}</div>
+                    {inv.notes && <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{inv.notes}</div>}
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <span style={{ fontWeight: 700, color: 'var(--accent)', fontSize: 16 }}>{formatCurrency(inv.valeur_stock)}</span>
+                  <button className="btn-icon" onClick={() => removeInventory(inv.id)} style={{ padding: 4, border: 'none' }}><Icon name="trash" size={14} color="var(--red)" /></button>
+                </div>
+              </div>
+            )) : <div style={{ textAlign: 'center', padding: 32, color: 'var(--text-muted)' }}>Aucun inventaire saisi</div>}
+          </div>
+        </div>
+
+        <div className="card">
+          <div className="card-header"><div><div className="card-title">Ratio corrigé par mois</div><div className="card-subtitle">Avec variation de stock</div></div></div>
+          {monthlyStats.map(m => (
+            <div key={m.month} style={{ padding: '16px 0', borderBottom: '1px solid var(--border)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                <div style={{ fontSize: 15, fontWeight: 600 }}>{m.label}</div>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{formatCurrency(m.ca)} CA</div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                <div style={{ padding: '10px 14px', background: 'var(--bg-input)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 4 }}>Ratio brut</div>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: m.ratioBrut > 28 ? 'var(--red)' : 'var(--gold)' }}>{m.ratioBrut.toFixed(1)}%</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>Achats : {formatCurrency(m.achats)}</div>
+                </div>
+                <div style={{ padding: '10px 14px', background: m.ratioCorrige !== null ? 'var(--accent-bg)' : 'var(--bg-input)', borderRadius: 'var(--radius-sm)', border: '1px solid ' + (m.ratioCorrige !== null ? 'rgba(74,222,128,0.2)' : 'var(--border)') }}>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 4 }}>Ratio corrigé</div>
+                  {m.ratioCorrige !== null ? (
+                    <>
+                      <div style={{ fontSize: 18, fontWeight: 700, color: m.ratioCorrige > 28 ? 'var(--red)' : 'var(--accent)' }}>{m.ratioCorrige.toFixed(1)}%</div>
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
+                        Stock: {formatCurrency(m.invDebut.valeur_stock)} → {formatCurrency(m.invFin.valeur_stock)}
+                      </div>
+                    </>
+                  ) : (
+                    <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>Inventaires manquants</div>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+          {monthlyStats.length === 0 && <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>Aucune donnée</div>}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export default function App() {
   const [user, setUser] = useState(() => {
     try {
@@ -1272,11 +1405,12 @@ export default function App() {
     { id: "alerts", label: "Alertes & Emails", icon: "alert" },
     { id: "suppliers", label: "Fournisseurs", icon: "truck" },
     { id: "objectives", label: "Objectifs CA", icon: "target" },
+    { id: "inventory", label: "Inventaire", icon: "inventory" },
     ...(isAdmin ? [{ id: "restos", label: "Restaurants", icon: "settings" }] : []),
   ];
   if (!user) return <><style>{CSS}</style><LoginPage onLogin={setUser} /></>;
   if (!dbReady) return <><style>{CSS}</style><div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: "var(--bg-primary)", color: "var(--text-primary)", fontFamily: "Inter, sans-serif" }}><div style={{ textAlign: "center" }}><div style={{ fontSize: 28, fontWeight: 700, marginBottom: 12 }}>RestoPilot</div><div style={{ color: "var(--text-muted)" }}>Chargement des données...</div></div></div></>;
-  const pageTitles = { dashboard: "Tableau de bord", input: "Saisie quotidienne", history: "Historique", alerts: "Alertes & Emails", suppliers: "Fournisseurs", objectives: "Objectifs CA", restos: "Restaurants & Managers" };
+  const pageTitles = { dashboard: "Tableau de bord", input: "Saisie quotidienne", history: "Historique", alerts: "Alertes & Emails", suppliers: "Fournisseurs", objectives: "Objectifs CA", inventory: "Inventaire", restos: "Restaurants & Managers" };
   return (
     <><style>{CSS}</style><ToastContainer toasts={toasts} />
     <div className="app-container">
@@ -1294,6 +1428,7 @@ export default function App() {
         {page === "alerts" && <AlertsPage data={currentData} addToast={addToast} />}
         {page === "suppliers" && <SuppliersPage suppliers={suppliers} setSuppliers={setSuppliers} data={currentData} addToast={addToast} isAdmin={isAdmin} currentRestoId={currentRestoId} />}
         {page === "objectives" && <ObjectivesPage restaurants={restaurants} currentRestoId={currentRestoId} isAdmin={isAdmin} onUpdateObjectives={handleUpdateObjectives} addToast={addToast} />}
+        {page === "inventory" && <InventoryPage data={currentData} currentRestoId={currentRestoId} addToast={addToast} />}
         {isAdmin && page === "restos" && <RestosPage restaurants={restaurants} users={allUsers} currentUser={user} onAddResto={handleAddResto} onDeleteResto={handleDeleteResto} onAddUser={handleAddUser} onUpdateUser={handleUpdateUser} onDeleteUser={handleDeleteUser} onResetFebruary={resetFebruaryData} addToast={addToast} />}
       </main>
     </div></>
