@@ -190,11 +190,9 @@ export default async function handler(req, res) {
   if (req.method === "OPTIONS") return res.status(200).end();
 
   try {
-    const isTest = req.method === "POST" && req.body?.test === true;
-    const now = new Date();
-    const targetDate = isTest
-      ? now.toISOString().slice(0, 10)
-      : new Date(now.getTime() - 86400000).toISOString().slice(0, 10);
+  const targetDate = isTest
+  ? now.toISOString().slice(0, 10)
+  : now.toISOString().slice(0, 10);
 
     const [ca, recipients, resto] = await Promise.all([
       getZeltyCA(targetDate),
