@@ -20,6 +20,10 @@ function getParisOffset(date) {
   return d >= dstStart && d < dstEnd ? "%2B02:00" : "%2B01:00";
 }
 
+function getParisDateString(now) {
+  return new Date(now.toLocaleString("en-CA", { timeZone: "Europe/Paris" })).toISOString().slice(0, 10);
+}
+
 async function fetchOrders(date, queryParams) {
   let totalTTC = 0, totalHT = 0, count = 0, offset = 0;
   while (true) {
@@ -177,7 +181,7 @@ function buildEmailHTML(date, ca, monthlyRatio) {
     </div>` : ''}
   </div>
   <div style="padding:16px 28px;background:#F4F6F9;font-size:11px;color:#94A3B8;text-align:center">
-    Rapport généré automatiquement par RestoPilot à 01:00
+    Rapport généré automatiquement par RestoPilot à 23:55
   </div>
 </div>
 </body></html>`;
@@ -190,9 +194,13 @@ export default async function handler(req, res) {
   if (req.method === "OPTIONS") return res.status(200).end();
 
   try {
-  const targetDate = isTest
-  ? now.toISOString().slice(0, 10)
-  : now.toISOString().slice(0, 10);
+    const now = new Date();
+    let body = {};
+    try { body = typeof req.body === "string" ? JSON.parse(req.body) : (req.body || {}); } catch(e) {}
+    const isTest = req.method === "POST" && body.test === true;
+
+    // Toujours la date du jour en heure Paris
+    const targetDate = getParisDateString(now);
 
     const [ca, recipients, resto] = await Promise.all([
       getZeltyCA(targetDate),
