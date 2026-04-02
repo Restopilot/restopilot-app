@@ -1297,7 +1297,7 @@ export default function App() {
     const { data: users } = await supabase.from("app_users").select("*").order("created_at");
     const { data: days } = await supabase.from("daily_data").select("*").order("date");
     const { data: invs } = await supabase.from("invoices").select("*").order("date");
-    const { data: supps } = await supabase.from("suppliers").select("*").order("name");
+    const { data: supps } = await supabase.from("suppliers").select("*").eq("active", true).order("name");
     const rList = (restos || []).map(r => ({
       id: r.id, name: r.name, address: r.address || "", color: r.color || "#4ADE80",
       objectives: r.objectives || DEFAULT_OBJ, dateOverrides: r.date_overrides || {}
@@ -1320,7 +1320,7 @@ export default function App() {
     setRestaurants(rList);
     setAllUsers(uList);
     setRestoData(rd);
-    setSuppliers((supps || []).filter(s => s.active));
+    setSuppliers((supps || []));
     setDbReady(true);
     return rList;
   }, []);
@@ -1451,10 +1451,10 @@ export default function App() {
       <main className="main-content">
         <div className="top-bar"><div className="top-bar-left"><button className="burger" onClick={() => setSidebarOpen(true)}><Icon name="menu" size={22} /></button><div><div className="page-title">{pageTitles[page]}</div><div className="page-date">{formatDateFull(today())}</div></div></div><div className="top-bar-right"><RestoPicker restaurants={restaurants} current={currentRestoId} setCurrent={setCurrentRestoId} isAdmin={isAdmin} /><button className="btn btn-sm btn-primary" onClick={() => setPage("input")}><Icon name="plus" size={14} color="var(--bg-primary)" /> Saisie</button></div></div>
         {page === "dashboard" && <DashboardPage data={currentData} restoName={currentResto?.name || "RestoPilot"} restoObjectives={currentResto?.objectives} restoOverrides={currentResto?.dateOverrides} currentRestoId={currentRestoId} />}
-        {page === "input" && <InputPage data={currentData} setData={setCurrentData} addToast={addToast} isAdmin={isAdmin} restoObjectives={currentResto?.objectives} restoOverrides={currentResto?.dateOverrides} suppliers={suppliers} currentRestoId={currentRestoId} />}
+        {page === "input" && <InputPage data={currentData} setData={setCurrentData} addToast={addToast} isAdmin={isAdmin} restoObjectives={currentResto?.objectives} restoOverrides={currentResto?.dateOverrides} suppliers={suppliers.filter(s => s.restaurant_id === currentRestoId)} currentRestoId={currentRestoId} />}
         {page === "history" && <HistoryPage data={currentData} />}
         {page === "alerts" && <AlertsPage data={currentData} addToast={addToast} />}
-        {page === "suppliers" && <SuppliersPage suppliers={suppliers} setSuppliers={setSuppliers} data={currentData} addToast={addToast} isAdmin={isAdmin} currentRestoId={currentRestoId} />}
+        {page === "suppliers" && <SuppliersPage suppliers={suppliers.filter(s => s.restaurant_id === currentRestoId)} setSuppliers={setSuppliers} data={currentData} addToast={addToast} isAdmin={isAdmin} currentRestoId={currentRestoId} />}
         {page === "objectives" && <ObjectivesPage restaurants={restaurants} currentRestoId={currentRestoId} isAdmin={isAdmin} onUpdateObjectives={handleUpdateObjectives} addToast={addToast} />}
         {page === "inventory" && <InventoryPage data={currentData} currentRestoId={currentRestoId} addToast={addToast} />}
         {isAdmin && page === "restos" && <RestosPage restaurants={restaurants} users={allUsers} currentUser={user} onAddResto={handleAddResto} onDeleteResto={handleDeleteResto} onAddUser={handleAddUser} onUpdateUser={handleUpdateUser} onDeleteUser={handleDeleteUser} onResetFebruary={resetFebruaryData} addToast={addToast} />}
