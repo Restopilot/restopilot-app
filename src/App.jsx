@@ -501,11 +501,13 @@ const exportPDF = (data, restoName, periodLabel) => {
   setTimeout(() => w.print(), 300);
 };
 
-const DashboardPage = ({ data, restoName, restoObjectives, restoOverrides }) => {
+const DashboardPage = ({ data, restoName, restoObjectives, restoOverrides, currentRestoId }) => {
   const [period, setPeriod] = useState("month");
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
   const [zeltyLive, setZeltyLive] = useState(null);
+
+  const [inventories, setInventories] = useState([]);
 
   useEffect(() => {
     fetch("/api/zelty-ca?date=" + today())
@@ -513,6 +515,12 @@ const DashboardPage = ({ data, restoName, restoObjectives, restoOverrides }) => 
       .then(z => { if (z && z.ca_ttc > 0) setZeltyLive(z); })
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (!currentRestoId) return;
+    supabase.from("inventory").select("*").eq("restaurant_id", currentRestoId).order("date", { ascending: true })
+      .then(({ data: rows }) => { if (rows) setInventories(rows); });
+  }, [currentRestoId]);
 
   const periodLabel = period === "week" ? "Semaine en cours" : period === "month" ? "Mois en cours" : period === "quarter" ? "Trimestre en cours" : period === "year" ? "Année en cours" : "Période personnalisée";
 
@@ -557,7 +565,19 @@ const DashboardPage = ({ data, restoName, restoObjectives, restoOverrides }) => 
     const taP = filteredData.reduce((s, d) => s + d.invoices.reduce((a, i) => a + i.montant, 0), 0);
     const ratioP = caPHt > 0 ? (taP / caPHt) * 100 : 0;
     const avgAtteinte = filteredData.length > 0 ? filteredData.reduce((s, d) => s + (d.objectif > 0 ? (d.ca / d.objectif) * 100 : 0), 0) / filteredData.length : 0;
-    return { ca: latest.ca, ca_ht: ht, objectif: latest.objectif, totalAchats, ratio, ecart, atteinte, caP, caPHt, taP, ratioP, avgAtteinte };
+    // Calcul ratio corrigé avec inventaires
+    let ratioCorrige = null;
+    if (inventories.length >= 2 && filteredData.length > 0) {
+      const dateDebut = filteredData[0].date;
+      const dateFin = filteredData[filteredData.length - 1].date;
+      const invDebut = [...inventories].reverse().find(i => i.date <= dateDebut);
+      const invFin = [...inventories].reverse().find(i => i.date <= dateFin);
+      if (invDebut && invFin && invFin.date !== invDebut.date) {
+        const consommation = taP + invDebut.valeur_stock - invFin.valeur_stock;
+        ratioCorrige = caPHt > 0 ? (consommation / caPHt) * 100 : 0;
+      }
+    }
+    return { ca: latest.ca, ca_ht: ht, objectif: latest.objectif, totalAchats, ratio, ecart, atteinte, caP, caPHt, taP, ratioP, avgAtteinte, ratioCorrige };
   }, [data, latest, filteredData]);
 
   const chartData = useMemo(() => filteredData.slice(-30).map(d => {
@@ -620,7 +640,14 @@ const DashboardPage = ({ data, restoName, restoObjectives, restoOverrides }) => 
       <div className="kpi-grid" style={{ gridTemplateColumns: "repeat(3, 1fr)" }}>
         <div className="kpi-card green"><div className="kpi-label" style={{ display: "flex", alignItems: "center", gap: 6 }}>CA du jour (TTC){zeltyLive && <span style={{ fontSize: 9, background: "var(--accent)", color: "#fff", padding: "1px 6px", borderRadius: 4, textTransform: "none", letterSpacing: 0 }}>Zelty live</span>}</div><div className="kpi-value green">{formatCurrency(zeltyLive ? zeltyLive.ca_ttc : stats.ca)}</div><div className="kpi-sub">HT : {formatCurrency(zeltyLive ? zeltyLive.ca_ht : stats.ca_ht)} · Obj : {formatCurrency(stats.objectif)}</div></div>
         <div className="kpi-card blue"><div className="kpi-label">CA période (TTC)</div><div className="kpi-value blue">{formatCurrency(stats.caP)}</div><div className="kpi-sub">HT : {formatCurrency(stats.caPHt)} · {filteredData.length} jours</div></div>
-        <div className={"kpi-card " + (stats.ratioP > RATIO_ALERT_THRESHOLD ? "red" : "gold")}><div className="kpi-label">Ratio matières période</div><div className={"kpi-value " + (stats.ratioP > RATIO_ALERT_THRESHOLD ? "red" : "gold")}>{formatPct(stats.ratioP)}</div><div className="kpi-sub">Achats : {formatCurrency(stats.taP)}</div></div>
+        <div className={"kpi-card " + (( stats.ratioCorrige ?? stats.ratioP) > RATIO_ALERT_THRESHOLD ? "red" : "gold")}>
+  <div className="kpi-label">Ratio matières période</div>
+  <div className={"kpi-value " + ((stats.ratioCorrige ?? stats.ratioP) > RATIO_ALERT_THRESHOLD ? "red" : "gold")}>{formatPct(stats.ratioCorrige ?? stats.ratioP)}</div>
+  <div className="kpi-sub">
+    {stats.ratioCorrige !== null ? <span style={{ color: "var(--accent)", fontWeight: 600 }}>✓ Corrigé stock</span> : "Brut"} · Achats : {formatCurrency(stats.taP)}
+    {stats.ratioCorrige !== null && <span> · Brut : {formatPct(stats.ratioP)}</span>}
+  </div>
+</div>
         <div className={"kpi-card " + ((() => { const e = (zeltyLive ? zeltyLive.ca_ttc : stats.ca) - stats.objectif; return e >= 0 ? "green" : "red"; })())}><div className="kpi-label">Écart objectif du jour</div><div className={"kpi-value " + ((() => { const e = (zeltyLive ? zeltyLive.ca_ttc : stats.ca) - stats.objectif; return e >= 0 ? "green" : "red"; })())}>{(() => { const e = (zeltyLive ? zeltyLive.ca_ttc : stats.ca) - stats.objectif; return (e >= 0 ? "+" : "") + formatCurrency(e); })()}</div><div className="kpi-sub">{(() => { const e = (zeltyLive ? zeltyLive.ca_ttc : stats.ca) - stats.objectif; return e >= 0 ? "🚀 Au-dessus de l'objectif" : "⚠️ En-dessous de l'objectif"; })()}</div></div>
         <div className={"kpi-card " + (stats.avgAtteinte >= 100 ? "green" : "gold")}><div className="kpi-label">Moy. atteinte période</div><div className={"kpi-value " + (stats.avgAtteinte >= 100 ? "green" : "gold")}>{formatPct(stats.avgAtteinte)}</div><div className="kpi-sub">{periodLabel}</div></div>
         <div className="kpi-card purple"><div className="kpi-label">Achats HT période</div><div className="kpi-value purple">{formatCurrency(stats.taP)}</div><div className="kpi-sub">vs CA HT : {formatCurrency(stats.caPHt)}</div></div>
@@ -1422,7 +1449,7 @@ export default function App() {
       </aside>
       <main className="main-content">
         <div className="top-bar"><div className="top-bar-left"><button className="burger" onClick={() => setSidebarOpen(true)}><Icon name="menu" size={22} /></button><div><div className="page-title">{pageTitles[page]}</div><div className="page-date">{formatDateFull(today())}</div></div></div><div className="top-bar-right"><RestoPicker restaurants={restaurants} current={currentRestoId} setCurrent={setCurrentRestoId} isAdmin={isAdmin} /><button className="btn btn-sm btn-primary" onClick={() => setPage("input")}><Icon name="plus" size={14} color="var(--bg-primary)" /> Saisie</button></div></div>
-        {page === "dashboard" && <DashboardPage data={currentData} restoName={currentResto?.name || "RestoPilot"} restoObjectives={currentResto?.objectives} restoOverrides={currentResto?.dateOverrides} />}
+        {page === "dashboard" && <DashboardPage data={currentData} restoName={currentResto?.name || "RestoPilot"} restoObjectives={currentResto?.objectives} restoOverrides={currentResto?.dateOverrides} currentRestoId={currentRestoId} />}
         {page === "input" && <InputPage data={currentData} setData={setCurrentData} addToast={addToast} isAdmin={isAdmin} restoObjectives={currentResto?.objectives} restoOverrides={currentResto?.dateOverrides} suppliers={suppliers} />}
         {page === "history" && <HistoryPage data={currentData} />}
         {page === "alerts" && <AlertsPage data={currentData} addToast={addToast} />}
