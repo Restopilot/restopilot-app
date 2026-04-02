@@ -780,7 +780,7 @@ const HistoryPage = ({ data }) => {
   );
 };
 
-const AlertsPage = ({ data, addToast }) => {
+const AlertsPage = ({ data, addToast, currentRestoId }) => {
   const [recipients, setRecipients] = useState([]);
   const [newEmail, setNewEmail] = useState("");
   const [newName, setNewName] = useState("");
@@ -815,8 +815,11 @@ const AlertsPage = ({ data, addToast }) => {
     const active = recipients.filter(r => r.active);
     if (!active.length) { addToast("Aucun destinataire actif", "error"); return; }
     setSending(true);
+    // Choisir le bon endpoint selon le restaurant actif
+    const WAFFLE_ID = "r1772494496631";
+    const endpoint = currentRestoId === WAFFLE_ID ? "/api/send-report-waffle" : "/api/send-report";
     try {
-      const resp = await fetch("/api/send-report", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ test: true }) });
+      const resp = await fetch(endpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ test: true }) });
       const result = await resp.json();
       if (result.success) addToast("Email test envoyé à " + active.length + " destinataire(s)", "success");
       else addToast("Erreur envoi : " + (result.error || "inconnue"), "error");
@@ -1463,7 +1466,7 @@ export default function App() {
         {page === "dashboard" && <DashboardPage data={currentData} restoName={currentResto?.name || "RestoPilot"} restoObjectives={currentResto?.objectives} restoOverrides={currentResto?.dateOverrides} currentRestoId={currentRestoId} />}
         {page === "input" && <InputPage data={currentData} setData={setCurrentData} addToast={addToast} isAdmin={isAdmin} restoObjectives={currentResto?.objectives} restoOverrides={currentResto?.dateOverrides} suppliers={suppliers.filter(s => s.restaurant_id === currentRestoId)} currentRestoId={currentRestoId} />}
         {page === "history" && <HistoryPage data={currentData} />}
-        {page === "alerts" && <AlertsPage data={currentData} addToast={addToast} />}
+        {page === "alerts" && <AlertsPage data={currentData} addToast={addToast} currentRestoId={currentRestoId} />}
         {page === "suppliers" && <SuppliersPage suppliers={suppliers.filter(s => s.restaurant_id === currentRestoId)} setSuppliers={setSuppliers} data={currentData} addToast={addToast} isAdmin={isAdmin} currentRestoId={currentRestoId} />}
         {page === "objectives" && <ObjectivesPage restaurants={restaurants} currentRestoId={currentRestoId} isAdmin={isAdmin} onUpdateObjectives={handleUpdateObjectives} addToast={addToast} />}
         {page === "inventory" && <InventoryPage data={currentData} currentRestoId={currentRestoId} addToast={addToast} />}
