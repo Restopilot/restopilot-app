@@ -810,8 +810,11 @@ const AlertsPage = ({ data, addToast, currentRestoId }) => {
     if (!active.length) { addToast("Aucun destinataire actif", "error"); return; }
     setSending(true);
     // Choisir le bon endpoint selon le restaurant actif
-    const WAFFLE_ID = "r1772494496631";
-    const endpoint = currentRestoId === WAFFLE_ID ? "/api/send-report-waffle" : "/api/send-report";
+    const WAFFLE_CERGY_ID = "r1772494496631";
+    const WAFFLE_BELLE_EPINE_ID = "r1775159807169";
+    const endpoint = currentRestoId === WAFFLE_CERGY_ID ? "/api/send-report-waffle"
+      : currentRestoId === WAFFLE_BELLE_EPINE_ID ? "/api/send-report-belle-epine"
+      : "/api/send-report";
     try {
       const resp = await fetch(endpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ test: true }) });
       const result = await resp.json();
