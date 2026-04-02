@@ -510,11 +510,12 @@ const DashboardPage = ({ data, restoName, restoObjectives, restoOverrides, curre
   const [inventories, setInventories] = useState([]);
 
   useEffect(() => {
+    setZeltyLive(null);
     fetch("/api/zelty-ca?date=" + today() + "&resto_id=" + (currentRestoId || ""))
       .then(r => r.ok ? r.json() : null)
       .then(z => { if (z && z.ca_ttc > 0) setZeltyLive(z); })
       .catch(() => {});
-  }, []);
+  }, [currentRestoId]);
 
   useEffect(() => {
     if (!currentRestoId) return;
