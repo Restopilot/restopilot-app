@@ -781,12 +781,12 @@ const AlertsPage = ({ data, addToast, currentRestoId }) => {
   const [sending, setSending] = useState(false);
 
   useEffect(() => {
-    supabase.from("alert_recipients").select("*").order("id").then(({ data: r }) => { if (r) setRecipients(r); });
-  }, []);
+    supabase.from("alert_recipients").select("*").eq("restaurant_id", currentRestoId).order("id").then(({ data: r }) => { if (r) setRecipients(r); });
+  }, [currentRestoId]);
 
   const addRecipient = async () => {
     if (!newEmail || !newEmail.includes("@")) { addToast("Email invalide", "error"); return; }
-    const { data: r, error } = await supabase.from("alert_recipients").insert({ email: newEmail.trim(), name: newName.trim() || null, active: true }).select().single();
+    const { data: r, error } = await supabase.from("alert_recipients").insert({ email: newEmail.trim(), name: newName.trim() || null, active: true, restaurant_id: currentRestoId }).select().single();
     if (error) { addToast("Erreur : " + (error.message.includes("duplicate") ? "Email déjà ajouté" : error.message), "error"); return; }
     setRecipients([...recipients, r]);
     setNewEmail(""); setNewName("");
