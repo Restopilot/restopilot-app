@@ -1,4 +1,8 @@
-const ZELTY_API_KEY = "MTk4NzU68xOv4nIh5aqjJBgJrc9kWwKDo84=";
+const ZELTY_KEYS = {
+  "r1772490949804": "MTk4NzU68xOv4nIh5aqjJBgJrc9kWwKDo84=",   // Afrik N Fusion
+  "r1772494496631": "MjA0NjM664nf0UF8la0gk9/NK9dspRSJ6n8=",   // Waffle Factory Cergy
+};
+
 const ZELTY_API_URL = "https://api.zelty.fr/2.7/orders";
 
 function lastSundayOf(year, month) {
@@ -17,12 +21,12 @@ function getParisOffset(date) {
   return d >= dstStart && d < dstEnd ? "%2B02:00" : "%2B01:00";
 }
 
-async function fetchOrders(queryParams) {
+async function fetchOrders(queryParams, apiKey) {
   let totalTTC = 0, totalHT = 0, count = 0, offset = 0;
   while (true) {
     const url = `${ZELTY_API_URL}?${queryParams}&limit=200&offset=${offset}`;
     const resp = await fetch(url, {
-      headers: { Authorization: `Bearer ${ZELTY_API_KEY}` },
+      headers: { Authorization: `Bearer ${apiKey}` },
     });
     let raw = await resp.text();
     raw = raw.replace(/[\x00-\x1f]/g, " ");
@@ -50,17 +54,24 @@ export default async function handler(req, res) {
 
   try {
     const date = req.query.date || new Date().toISOString().slice(0, 10);
+    const restoId = req.query.resto_id || "r1772490949804"; // Afrik par défaut
+    const apiKey = ZELTY_KEYS[restoId];
+
+    if (!apiKey) {
+      return res.status(400).json({ error: "Restaurant non reconnu ou clé Zelty manquante" });
+    }
+
     const tz = getParisOffset(date);
 
     // Tentative 1 : timezone Paris auto (CET hiver / CEST été)
-    let result = await fetchOrders(`from=${date}T00:00:00${tz}&to=${date}T23:59:59${tz}`);
+    let result = await fetchOrders(`from=${date}T00:00:00${tz}&to=${date}T23:59:59${tz}`, apiKey);
     // Tentative 2 : noz
     if (result.count === 0) {
-      result = await fetchOrders(`noz=${date}`);
+      result = await fetchOrders(`noz=${date}`, apiKey);
     }
     // Tentative 3 : fallback UTC
     if (result.count === 0) {
-      result = await fetchOrders(`from=${date}T00:00:00&to=${date}T23:59:59`);
+      result = await fetchOrders(`from=${date}T00:00:00&to=${date}T23:59:59`, apiKey);
     }
 
     res.status(200).json({
