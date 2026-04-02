@@ -987,8 +987,18 @@ const SuppliersPage = ({ suppliers, setSuppliers, data, addToast, isAdmin, curre
 
   const addSupplier = async () => {
     if (!newName.trim()) { addToast("Nom requis", "error"); return; }
+    // Vérifier si le fournisseur existe déjà (actif ou inactif) pour ce restaurant
+    const { data: existing } = await supabase.from("suppliers").select("*").eq("name", newName.trim()).eq("restaurant_id", currentRestoId).single();
+    if (existing) {
+      if (existing.active) { addToast("Ce fournisseur existe déjà", "error"); return; }
+      // Réactiver le fournisseur désactivé
+      const { data: reactivated } = await supabase.from("suppliers").update({ active: true, category: newCat }).eq("id", existing.id).select().single();
+      setSuppliers(prev => [...prev, reactivated]);
+      setNewName(""); addToast("Fournisseur réactivé : " + newName, "success");
+      return;
+    }
     const { data: s, error } = await supabase.from("suppliers").insert({ name: newName.trim(), category: newCat, restaurant_id: currentRestoId, active: true }).select().single();
-    if (error) { addToast(error.message.includes("duplicate") ? "Ce fournisseur existe déjà" : error.message, "error"); return; }
+    if (error) { addToast(error.message, "error"); return; }
     setSuppliers(prev => [...prev, s]);
     setNewName(""); addToast("Fournisseur ajouté : " + newName, "success");
   };
