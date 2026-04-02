@@ -535,11 +535,6 @@ const DashboardPage = ({ data, restoName, restoObjectives, restoOverrides, curre
     if (period === "month") {
       return data.filter(d => { const dt = new Date(d.date + "T00:00:00"); return dt.getFullYear() === now.getFullYear() && dt.getMonth() === now.getMonth(); });
     }
-    if (period === "quarter") {
-      const qm = Math.floor(now.getMonth() / 3) * 3;
-      const qs = new Date(now.getFullYear(), qm, 1);
-      return data.filter(d => { const dt = new Date(d.date + "T00:00:00"); return dt >= qs; });
-    }
     if (period === "year") {
       return data.filter(d => { const dt = new Date(d.date + "T00:00:00"); return dt.getFullYear() === now.getFullYear(); });
     }
@@ -620,7 +615,6 @@ const DashboardPage = ({ data, restoName, restoObjectives, restoOverrides, curre
         <div style={{ display: "flex", gap: 6 }}>
           <button style={periodBtnStyle("week")} onClick={() => setPeriod("week")}>Semaine</button>
           <button style={periodBtnStyle("month")} onClick={() => setPeriod("month")}>Mois</button>
-          <button style={periodBtnStyle("quarter")} onClick={() => setPeriod("quarter")}>Trimestre</button>
           <button style={periodBtnStyle("year")} onClick={() => setPeriod("year")}>Année</button>
           <button style={periodBtnStyle("custom")} onClick={() => setPeriod("custom")}>Personnalisé</button>
         </div>
@@ -1111,7 +1105,6 @@ const SuppliersPage = ({ suppliers, setSuppliers, data, addToast, isAdmin, curre
         <div style={{ display: "flex", gap: 6 }}>
           <button style={periodBtnStyle("week")} onClick={() => setPeriod("week")}>Semaine</button>
           <button style={periodBtnStyle("month")} onClick={() => setPeriod("month")}>Mois</button>
-          <button style={periodBtnStyle("quarter")} onClick={() => setPeriod("quarter")}>Trimestre</button>
           <button style={periodBtnStyle("custom")} onClick={() => setPeriod("custom")}>Personnalisé</button>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
