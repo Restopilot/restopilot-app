@@ -510,7 +510,7 @@ const DashboardPage = ({ data, restoName, restoObjectives, restoOverrides, curre
   const [inventories, setInventories] = useState([]);
 
   useEffect(() => {
-    fetch("/api/zelty-ca?date=" + today())
+    fetch("/api/zelty-ca?date=" + today() + "&resto_id=" + (currentRestoId || ""))
       .then(r => r.ok ? r.json() : null)
       .then(z => { if (z && z.ca_ttc > 0) setZeltyLive(z); })
       .catch(() => {});
@@ -665,7 +665,7 @@ const DashboardPage = ({ data, restoName, restoObjectives, restoOverrides, curre
   );
 };
 
-const InputPage = ({ data, setData, addToast, isAdmin, restoObjectives, restoOverrides, suppliers }) => {
+const InputPage = ({ data, setData, addToast, isAdmin, restoObjectives, restoOverrides, suppliers, currentRestoId }) => {
   const todayStr = today();
   const existing = data.find((d) => d.date === todayStr);
   const [ca, setCa] = useState(existing?.ca?.toString() || "");
@@ -682,7 +682,7 @@ const InputPage = ({ data, setData, addToast, isAdmin, restoObjectives, restoOve
     setZeltyLoading(true);
     setZeltyInfo(null);
     try {
-      const resp = await fetch("/api/zelty-ca?date=" + date);
+      const resp = await fetch("/api/zelty-ca?date=" + date + "&resto_id=" + (currentRestoId || ""));
       if (!resp.ok) throw new Error("Erreur API");
       const z = await resp.json();
       if (z.ca_ttc > 0) {
@@ -1450,7 +1450,7 @@ export default function App() {
       <main className="main-content">
         <div className="top-bar"><div className="top-bar-left"><button className="burger" onClick={() => setSidebarOpen(true)}><Icon name="menu" size={22} /></button><div><div className="page-title">{pageTitles[page]}</div><div className="page-date">{formatDateFull(today())}</div></div></div><div className="top-bar-right"><RestoPicker restaurants={restaurants} current={currentRestoId} setCurrent={setCurrentRestoId} isAdmin={isAdmin} /><button className="btn btn-sm btn-primary" onClick={() => setPage("input")}><Icon name="plus" size={14} color="var(--bg-primary)" /> Saisie</button></div></div>
         {page === "dashboard" && <DashboardPage data={currentData} restoName={currentResto?.name || "RestoPilot"} restoObjectives={currentResto?.objectives} restoOverrides={currentResto?.dateOverrides} currentRestoId={currentRestoId} />}
-        {page === "input" && <InputPage data={currentData} setData={setCurrentData} addToast={addToast} isAdmin={isAdmin} restoObjectives={currentResto?.objectives} restoOverrides={currentResto?.dateOverrides} suppliers={suppliers} />}
+        {page === "input" && <InputPage data={currentData} setData={setCurrentData} addToast={addToast} isAdmin={isAdmin} restoObjectives={currentResto?.objectives} restoOverrides={currentResto?.dateOverrides} suppliers={suppliers} currentRestoId={currentRestoId} />}
         {page === "history" && <HistoryPage data={currentData} />}
         {page === "alerts" && <AlertsPage data={currentData} addToast={addToast} />}
         {page === "suppliers" && <SuppliersPage suppliers={suppliers} setSuppliers={setSuppliers} data={currentData} addToast={addToast} isAdmin={isAdmin} currentRestoId={currentRestoId} />}
