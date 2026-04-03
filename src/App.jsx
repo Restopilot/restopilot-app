@@ -608,7 +608,7 @@ const DashboardPage = ({ data, restoName, restoObjectives, restoOverrides, curre
     const ratioProdHorairePeriode = comboHoursPeriod && comboHoursPeriod.total_hours > 0 && caPHt > 0
       ? caPHt / comboHoursPeriod.total_hours : null;
     return { ca: latest.ca, ca_ht: ht, objectif: latest.objectif, totalAchats, ratio, ecart, atteinte, caP, caPHt, taP, ratioP, avgAtteinte, ratioCorrige, ratioProdHoraire, ratioProdHorairePeriode };
-  }, [data, latest, filteredData]);
+  }, [data, latest, filteredData, comboHours, comboHoursPeriod]);
 
   const chartData = useMemo(() => filteredData.slice(-30).map(d => {
     const ta = d.invoices.reduce((s, i) => s + i.montant, 0);
