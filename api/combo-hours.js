@@ -17,7 +17,7 @@ export default async function handler(req, res) {
       return res.status(200).json({ date, total_hours: null, shifts_count: 0, error: "Pas de config Combo pour ce restaurant" });
     }
 
-    const url = `https://partner.combohr.com/api/v1/plannings?start_date=${date}&end_date=${date}&location_id=${config.location_id}`;
+    const url = `https://partner.combohr.com/api/v1/plannings?start_date=${date}&location_id=${config.location_id}`;
     const resp = await fetch(url, {
       headers: {
         Authorization: `Bearer ${config.key}`,
