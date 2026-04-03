@@ -537,7 +537,16 @@ const DashboardPage = ({ data, restoName, restoObjectives, restoOverrides, curre
       .catch(() => {});
   }, [currentRestoId]);
 
-
+  useEffect(() => {
+    const COMBO_RESTO_ID = "r1772490949804";
+    if (currentRestoId !== COMBO_RESTO_ID || filteredData.length === 0) { setComboHoursPeriod(null); return; }
+    const fromDate = filteredData[0].date;
+    const toDate = filteredData[filteredData.length - 1].date;
+    fetch("/api/combo-hours?from=" + fromDate + "&to=" + toDate + "&resto_id=" + currentRestoId)
+      .then(r => r.ok ? r.json() : null)
+      .then(c => { if (c && c.total_hours !== null) setComboHoursPeriod(c); })
+      .catch(() => {});
+  }, [currentRestoId, filteredData]);
 
   const periodLabel = period === "week" ? "Semaine en cours" : period === "month" ? "Mois en cours" : period === "quarter" ? "Trimestre en cours" : period === "year" ? "Année en cours" : "Période personnalisée";
 
@@ -559,17 +568,6 @@ const DashboardPage = ({ data, restoName, restoObjectives, restoOverrides, curre
     }
     return data.filter(d => { const dt = new Date(d.date + "T00:00:00"); return dt.getFullYear() === now.getFullYear() && dt.getMonth() === now.getMonth(); });
   }, [data, period, customFrom, customTo]);
-
-  useEffect(() => {
-    const COMBO_RESTO_ID = "r1772490949804";
-    if (currentRestoId !== COMBO_RESTO_ID || filteredData.length === 0) { setComboHoursPeriod(null); return; }
-    const fromDate = filteredData[0].date;
-    const toDate = filteredData[filteredData.length - 1].date;
-    fetch("/api/combo-hours?from=" + fromDate + "&to=" + toDate + "&resto_id=" + currentRestoId)
-      .then(r => r.ok ? r.json() : null)
-      .then(c => { if (c && c.total_hours !== null) setComboHoursPeriod(c); })
-      .catch(() => {});
-  }, [currentRestoId, filteredData]);
 
   const todayData = data.find(d => d.date === today());
   const liveCa = zeltyLive ? zeltyLive.ca_ttc : 0;
