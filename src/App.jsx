@@ -508,6 +508,7 @@ const DashboardPage = ({ data, restoName, restoObjectives, restoOverrides, curre
   const [zeltyLive, setZeltyLive] = useState(null);
 
   const [inventories, setInventories] = useState([]);
+  const [comboHours, setComboHours] = useState(null);
 
   useEffect(() => {
     setZeltyLive(null);
@@ -521,6 +522,15 @@ const DashboardPage = ({ data, restoName, restoObjectives, restoOverrides, curre
     if (!currentRestoId) return;
     supabase.from("inventory").select("*").eq("restaurant_id", currentRestoId).order("date", { ascending: true })
       .then(({ data: rows }) => { if (rows) setInventories(rows); });
+  }, [currentRestoId]);
+
+  useEffect(() => {
+    const COMBO_RESTO_ID = "r1772490949804";
+    if (currentRestoId !== COMBO_RESTO_ID) { setComboHours(null); return; }
+    fetch("/api/combo-hours?date=" + today() + "&resto_id=" + currentRestoId)
+      .then(r => r.ok ? r.json() : null)
+      .then(c => { if (c && c.total_hours !== null) setComboHours(c); })
+      .catch(() => {});
   }, [currentRestoId]);
 
   const periodLabel = period === "week" ? "Semaine en cours" : period === "month" ? "Mois en cours" : period === "quarter" ? "Trimestre en cours" : period === "year" ? "Année en cours" : "Période personnalisée";
@@ -573,7 +583,12 @@ const DashboardPage = ({ data, restoName, restoObjectives, restoOverrides, curre
         ratioCorrige = caPHt > 0 ? (consommation / caPHt) * 100 : 0;
       }
     }
-    return { ca: latest.ca, ca_ht: ht, objectif: latest.objectif, totalAchats, ratio, ecart, atteinte, caP, caPHt, taP, ratioP, avgAtteinte, ratioCorrige };
+    // Ratio production horaire du jour
+    const caHtJour = zeltyLive ? zeltyLive.ca_ht : (latest.ca_ht || Math.round(latest.ca / 1.1));
+    const ratioProdHoraire = comboHours && comboHours.total_hours > 0 ? caHtJour / comboHours.total_hours : null;
+    // Ratio production horaire sur la période
+    const ratioProdHorairePeriode = null; // calculé séparément si besoin
+    return { ca: latest.ca, ca_ht: ht, objectif: latest.objectif, totalAchats, ratio, ecart, atteinte, caP, caPHt, taP, ratioP, avgAtteinte, ratioCorrige, ratioProdHoraire };
   }, [data, latest, filteredData]);
 
   const chartData = useMemo(() => filteredData.slice(-30).map(d => {
@@ -646,6 +661,9 @@ const DashboardPage = ({ data, restoName, restoObjectives, restoOverrides, curre
         <div className={"kpi-card " + ((() => { const e = (zeltyLive ? zeltyLive.ca_ttc : stats.ca) - stats.objectif; return e >= 0 ? "green" : "red"; })())}><div className="kpi-label">Écart objectif du jour</div><div className={"kpi-value " + ((() => { const e = (zeltyLive ? zeltyLive.ca_ttc : stats.ca) - stats.objectif; return e >= 0 ? "green" : "red"; })())}>{(() => { const e = (zeltyLive ? zeltyLive.ca_ttc : stats.ca) - stats.objectif; return (e >= 0 ? "+" : "") + formatCurrency(e); })()}</div><div className="kpi-sub">{(() => { const e = (zeltyLive ? zeltyLive.ca_ttc : stats.ca) - stats.objectif; return e >= 0 ? "🚀 Au-dessus de l'objectif" : "⚠️ En-dessous de l'objectif"; })()}</div></div>
         <div className={"kpi-card " + (stats.avgAtteinte >= 100 ? "green" : "gold")}><div className="kpi-label">Moy. atteinte période</div><div className={"kpi-value " + (stats.avgAtteinte >= 100 ? "green" : "gold")}>{formatPct(stats.avgAtteinte)}</div><div className="kpi-sub">{periodLabel}</div></div>
         <div className="kpi-card purple"><div className="kpi-label">Achats HT période</div><div className="kpi-value purple">{formatCurrency(stats.taP)}</div><div className="kpi-sub">vs CA HT : {formatCurrency(stats.caPHt)}</div></div>
+        {stats.ratioProdHoraire !== null && (
+          <div className="kpi-card blue"><div className="kpi-label" style={{ display: "flex", alignItems: "center", gap: 6 }}>Prod. horaire du jour<span style={{ fontSize: 9, background: "var(--blue)", color: "#fff", padding: "1px 6px", borderRadius: 4 }}>Combo</span></div><div className="kpi-value blue">{formatCurrency(stats.ratioProdHoraire)}<span style={{ fontSize: 14, fontWeight: 400 }}>/h</span></div><div className="kpi-sub">{comboHours?.total_hours}h travaillées · CA HT {formatCurrency(zeltyLive ? zeltyLive.ca_ht : stats.ca_ht)}</div></div>
+        )}
       </div>
       <div className="grid-2">
         <div className="card"><div className="card-header"><div><div className="card-title">Évolution CA vs Objectif</div><div className="card-subtitle">{periodLabel}</div></div></div><div style={{ height: 280 }}><ResponsiveContainer width="100%" height="100%"><AreaChart data={chartData}><defs><linearGradient id="gradCA" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#1A8C5B" stopOpacity={0.2} /><stop offset="95%" stopColor="#1A8C5B" stopOpacity={0} /></linearGradient></defs><CartesianGrid strokeDasharray="3 3" stroke="#2C2C30" /><XAxis dataKey="date" tick={{ fill: "#63636B", fontSize: 11 }} /><YAxis tick={{ fill: "#63636B", fontSize: 11 }} /><Tooltip content={<CustomTooltip />} /><Area type="monotone" dataKey="CA TTC" stroke="#1A8C5B" fill="url(#gradCA)" strokeWidth={2} name="CA TTC" /><Line type="monotone" dataKey="Objectif" stroke="#D9536B" strokeWidth={2} strokeDasharray="6 3" dot={false} name="Objectif" /></AreaChart></ResponsiveContainer></div></div>
