@@ -113,6 +113,27 @@ async function saveCAToSupabase(date, ca_ttc, ca_ht, restoId, restoObjectif) {
   }
 }
 
+async function getComboHours(date) {
+  try {
+    const url = `https://partner.combohr.com/api/v1/plannings?start_date=${date}&end_date=${date}&location_id=c66b876f-fccc-40bf-9743-769be1091257`;
+    const resp = await fetch(url, {
+      headers: { Authorization: `Bearer NtlQR2cKMITVgAneX3xK5JuWmBZWDX0VSr-2TLne7Sw`, "Content-Type": "application/json" },
+    });
+    if (!resp.ok) return null;
+    const shifts = await resp.json();
+    const dayShifts = shifts.filter(s => s.date === date);
+    let totalMinutes = 0;
+    dayShifts.forEach(shift => {
+      const start = new Date(shift.starts_at);
+      const end = new Date(shift.ends_at);
+      const durationMinutes = (end - start) / 60000;
+      const breakMinutes = shift.break_duration || 0;
+      totalMinutes += Math.max(0, durationMinutes - breakMinutes);
+    });
+    return { total_hours: Math.round((totalMinutes / 60) * 10) / 10, shifts_count: dayShifts.length };
+  } catch(e) { return null; }
+}
+
 function formatEUR(v) {
   return new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(v);
 }
@@ -141,7 +162,7 @@ async function getMonthlyRatio(date, restoId) {
   }
 }
 
-function buildEmailHTML(date, ca, monthlyRatio) {
+function buildEmailHTML(date, ca, monthlyRatio, comboHours, ratioProdHoraire) {
   const dateFR = new Date(date + "T12:00:00").toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
   const ecart = ca.ca_ttc - ca.objectif;
   const isAbove = ecart >= 0;
@@ -187,6 +208,12 @@ function buildEmailHTML(date, ca, monthlyRatio) {
       <div style="font-size:12px;color:#94A3B8">Seuil : 28%${monthlyRatio > 28 ? ' ⚠️ Dépassé' : ' ✅'}</div>
     </div>` : ''}
   </div>
+    ${ratioProdHoraire !== null ? `<div style="margin-top:16px;padding:16px;background:#F4F6F9;border-radius:8px;text-align:center">
+      <div style="font-size:11px;color:#94A3B8;text-transform:uppercase;letter-spacing:0.5px">Production horaire</div>
+      <div style="font-size:28px;font-weight:700;color:#1B2A4A;margin:4px 0">${formatEUR(ratioProdHoraire)}<span style="font-size:14px;font-weight:400">/h</span></div>
+      <div style="font-size:12px;color:#94A3B8">${comboHours.total_hours}h travaillées · CA HT ${formatEUR(ca.ca_ht)}</div>
+    </div>` : ''}
+  </div>
   <div style="padding:16px 28px;background:#F4F6F9;font-size:11px;color:#94A3B8;text-align:center">
     Rapport généré automatiquement par RestoPilot à 23:55
   </div>
@@ -220,12 +247,16 @@ export default async function handler(req, res) {
     ca.objectif = objectif;
 
     const monthlyRatio = await getMonthlyRatio(targetDate, resto.id);
+    const comboHours = await getComboHours(targetDate);
+    const ratioProdHoraire = comboHours && comboHours.total_hours > 0 && ca.ca_ht > 0
+      ? ca.ca_ht / comboHours.total_hours
+      : null;
 
     if (!recipients.length) {
       return res.status(200).json({ success: false, error: "Aucun destinataire actif" });
     }
 
-    const html = buildEmailHTML(targetDate, ca, monthlyRatio);
+    const html = buildEmailHTML(targetDate, ca, monthlyRatio, comboHours, ratioProdHoraire);
     const dateFR = new Date(targetDate + "T12:00:00").toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" });
 
     const emailResp = await fetch("https://api.resend.com/emails", {
