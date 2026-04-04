@@ -600,9 +600,15 @@ const DashboardPage = ({ data, restoName, restoObjectives, restoOverrides, curre
         ratioCorrige = caPHt > 0 ? (consommation / caPHt) * 100 : 0;
       }
     }
-    // Ratio production horaire J-1
+    // Ratio production horaire J-1 — cherche dans data, sinon utilise CA HT moyen de la période
     const ratioProdHoraire = comboHours && comboHours.total_hours > 0
-      ? (() => { const d = data.find(x => x.date === comboHours.date); return d ? (d.ca_ht || Math.round(d.ca / 1.1)) / comboHours.total_hours : null; })()
+      ? (() => {
+          const d = data.find(x => x.date === comboHours.date);
+          if (d && (d.ca_ht || d.ca)) return (d.ca_ht || Math.round(d.ca / 1.1)) / comboHours.total_hours;
+          // Fallback : CA HT moyen journalier de la période
+          if (filteredData.length > 0 && caPHt > 0) return (caPHt / filteredData.length) / comboHours.total_hours;
+          return null;
+        })()
       : null;
     // Ratio production horaire période
     const ratioProdHorairePeriode = comboHoursPeriod && comboHoursPeriod.total_hours > 0 && caPHt > 0
