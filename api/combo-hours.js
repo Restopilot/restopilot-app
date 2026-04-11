@@ -1,5 +1,6 @@
 const COMBO_KEYS = {
   "r1772490949804": { key: "NtlQR2cKMITVgAneX3xK5JuWmBZWDX0VSr-2TLne7Sw", location_id: "c66b876f-fccc-40bf-9743-769be1091257" }, // Afrik N Fusion
+  "r1772494496631": { key: "9rr_XzyWSeZpxX42nNCuHbk0JG9RgnSg1WQywZHIQN4", location_id: "bc7bc040-8248-4d57-bb93-13c95bd01d11" }, // Waffle Factory Cergy
   "r1775159807169": { key: "FSowgEZYNvwOM0t6mchemjYtMc-9YxatfcfRrdEZetk", location_id: "ee5c8263-71fc-4f86-b1e6-bc4c2b4ce216" }, // Waffle Factory Belle Épine
 };
 
