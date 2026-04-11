@@ -562,12 +562,13 @@ const DashboardPage = ({ data, restoName, restoObjectives, restoOverrides, curre
 
   useEffect(() => {
     const COMBO_RESTOS = ["r1772490949804", "r1772494496631", "r1775159807169"];
-    if (!COMBO_RESTOS.includes(currentRestoId) || filteredData.length === 0) { setComboHoursPeriod(null); return; }
+    setComboHoursPeriod(null); // reset avant chaque fetch
+    if (!COMBO_RESTOS.includes(currentRestoId) || filteredData.length === 0) return;
     const fromDate = filteredData[0].date;
     const toDate = filteredData[filteredData.length - 1].date;
     fetch("/api/combo-hours?from=" + fromDate + "&to=" + toDate + "&resto_id=" + currentRestoId)
       .then(r => r.ok ? r.json() : null)
-      .then(c => { if (c && c.total_hours !== null) setComboHoursPeriod(c); })
+      .then(c => { if (c && c.total_hours > 0) setComboHoursPeriod({ ...c, fromDate, toDate }); })
       .catch(() => {});
   }, [currentRestoId, filteredData]);
 
@@ -610,8 +611,11 @@ const DashboardPage = ({ data, restoName, restoObjectives, restoOverrides, curre
           return null;
         })()
       : null;
-    // Ratio production horaire période
-    const ratioProdHorairePeriode = comboHoursPeriod && comboHoursPeriod.total_hours > 0 && caPHt > 0
+    // Ratio production horaire période — vérifier que les dates correspondent
+    const periodeFromDate = filteredData.length > 0 ? filteredData[0].date : null;
+    const periodeToDate = filteredData.length > 0 ? filteredData[filteredData.length - 1].date : null;
+    const periodeDateOk = comboHoursPeriod && comboHoursPeriod.fromDate === periodeFromDate && comboHoursPeriod.toDate === periodeToDate;
+    const ratioProdHorairePeriode = periodeDateOk && comboHoursPeriod.total_hours > 0 && caPHt > 0
       ? caPHt / comboHoursPeriod.total_hours : null;
     return { ca: latest.ca, ca_ht: ht, objectif: latest.objectif, totalAchats, ratio, ecart, atteinte, caP, caPHt, taP, ratioP, avgAtteinte, ratioCorrige, ratioProdHoraire, ratioProdHorairePeriode };
   }, [data, latest, filteredData, comboHours, comboHoursPeriod]);
