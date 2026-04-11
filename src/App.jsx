@@ -614,11 +614,8 @@ const DashboardPage = ({ data, restoName, restoObjectives, restoOverrides, curre
           return null;
         })()
       : null;
-    // Ratio production horaire période — vérifier que les dates correspondent
-    const periodeFromDate = filteredData.length > 0 ? filteredData[0].date : null;
-    const periodeToDate = filteredData.length > 0 ? filteredData[filteredData.length - 1].date : null;
-    const periodeDateOk = comboHoursPeriod && comboHoursPeriod.fromDate === periodeFromDate && comboHoursPeriod.toDate === periodeToDate;
-    const ratioProdHorairePeriode = periodeDateOk && comboHoursPeriod.total_hours > 0 && caPHt > 0
+    // Ratio production horaire période
+    const ratioProdHorairePeriode = comboHoursPeriod && comboHoursPeriod.total_hours > 0 && caPHt > 0
       ? caPHt / comboHoursPeriod.total_hours : null;
     return { ca: latest.ca, ca_ht: ht, objectif: latest.objectif, totalAchats, ratio, ecart, atteinte, caP, caPHt, taP, ratioP, avgAtteinte, ratioCorrige, ratioProdHoraire, ratioProdHorairePeriode };
   }, [data, latest, filteredData, comboHours, comboHoursPeriod]);
