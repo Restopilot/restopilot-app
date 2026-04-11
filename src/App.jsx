@@ -526,7 +526,7 @@ const DashboardPage = ({ data, restoName, restoObjectives, restoOverrides, curre
   }, [currentRestoId]);
 
   useEffect(() => {
-    const COMBO_RESTOS = ["r1772490949804", "r1775159807169"];
+    const COMBO_RESTOS = ["r1772490949804", "r1772494496631", "r1775159807169"];
     if (!COMBO_RESTOS.includes(currentRestoId)) { setComboHours(null); setComboHoursPeriod(null); return; }
     // KPI : heures J-1
     const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
@@ -561,7 +561,7 @@ const DashboardPage = ({ data, restoName, restoObjectives, restoOverrides, curre
   }, [data, period, customFrom, customTo]);
 
   useEffect(() => {
-    const COMBO_RESTOS = ["r1772490949804", "r1775159807169"];
+    const COMBO_RESTOS = ["r1772490949804", "r1772494496631", "r1775159807169"];
     if (!COMBO_RESTOS.includes(currentRestoId) || filteredData.length === 0) { setComboHoursPeriod(null); return; }
     const fromDate = filteredData[0].date;
     const toDate = filteredData[filteredData.length - 1].date;
