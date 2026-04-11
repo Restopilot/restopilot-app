@@ -415,18 +415,34 @@ const ToastContainer = ({ toasts }) => (<div className="toast-container">{toasts
 
 const RestoPicker = ({ restaurants, current, setCurrent, isAdmin }) => {
   const [open, setOpen] = useState(false);
+  const isMultisite = current === "multisites";
   const r = restaurants.find(x => x.id === current);
   if (!isAdmin || restaurants.length <= 1) return r ? <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--text-secondary)" }}><div className="resto-dot" style={{ background: r.color }} />{r.name}</div> : null;
   return (
     <div className="resto-picker">
-      <button className="resto-picker-btn" onClick={() => setOpen(!open)}><div className="resto-dot" style={{ background: r?.color || "var(--text-muted)" }} /><span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 150 }}>{r?.name || "Choisir"}</span><Icon name="chevronDown" size={14} color="var(--text-muted)" /></button>
-      {open && <><div style={{ position: "fixed", inset: 0, zIndex: 199 }} onClick={() => setOpen(false)} /><div className="resto-dropdown">{restaurants.map(x => (
-        <div key={x.id} className={"resto-dd-item" + (x.id === current ? " active" : "")} onClick={() => { setCurrent(x.id); setOpen(false); }}>
-          <div className="resto-dot" style={{ background: x.color }} />
-          <div><div className="resto-dd-name">{x.name}</div><div className="resto-dd-addr">{x.address}</div></div>
-          {x.id === current && <Icon name="check" size={16} color="var(--accent)" />}
+      <button className="resto-picker-btn" onClick={() => setOpen(!open)}>
+        {isMultisite
+          ? <><span style={{ fontSize: 14 }}>🏢</span><span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 150 }}>Vue multisites</span></>
+          : <><div className="resto-dot" style={{ background: r?.color || "var(--text-muted)" }} /><span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 150 }}>{r?.name || "Choisir"}</span></>
+        }
+        <Icon name="chevronDown" size={14} color="var(--text-muted)" />
+      </button>
+      {open && <><div style={{ position: "fixed", inset: 0, zIndex: 199 }} onClick={() => setOpen(false)} />
+      <div className="resto-dropdown">
+        <div className={"resto-dd-item" + (isMultisite ? " active" : "")} onClick={() => { setCurrent("multisites"); setOpen(false); }}
+          style={{ borderBottom: "1px solid var(--border)" }}>
+          <span style={{ fontSize: 16 }}>🏢</span>
+          <div><div className="resto-dd-name">Vue multisites</div><div className="resto-dd-addr">Tous les restaurants</div></div>
+          {isMultisite && <Icon name="check" size={16} color="var(--accent)" />}
         </div>
-      ))}</div></>}
+        {restaurants.map(x => (
+          <div key={x.id} className={"resto-dd-item" + (x.id === current ? " active" : "")} onClick={() => { setCurrent(x.id); setOpen(false); }}>
+            <div className="resto-dot" style={{ background: x.color }} />
+            <div><div className="resto-dd-name">{x.name}</div><div className="resto-dd-addr">{x.address}</div></div>
+            {x.id === current && <Icon name="check" size={16} color="var(--accent)" />}
+          </div>
+        ))}
+      </div></>}
     </div>
   );
 };
@@ -1622,7 +1638,6 @@ export default function App() {
 
   const navItems = [
     { id: "dashboard", label: "Tableau de bord", icon: "dashboard" },
-    ...(isAdmin ? [{ id: "multisites", label: "Vue multisites", icon: "target" }] : []),
     { id: "input", label: "Saisie du jour", icon: "input" },
     { id: "history", label: "Historique", icon: "history" },
     { id: "alerts", label: "Alertes & Emails", icon: "alert" },
@@ -1633,7 +1648,7 @@ export default function App() {
   ];
   if (!user) return <><style>{CSS}</style><LoginPage onLogin={setUser} /></>;
   if (!dbReady) return <><style>{CSS}</style><div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: "var(--bg-primary)", color: "var(--text-primary)", fontFamily: "Inter, sans-serif" }}><div style={{ textAlign: "center" }}><div style={{ fontSize: 28, fontWeight: 700, marginBottom: 12 }}>RestoPilot</div><div style={{ color: "var(--text-muted)" }}>Chargement des données...</div></div></div></>;
-  const pageTitles = { multisites: "Vue multisites", dashboard: "Tableau de bord", input: "Saisie quotidienne", history: "Historique", alerts: "Alertes & Emails", suppliers: "Fournisseurs", objectives: "Objectifs CA", inventory: "Inventaire", restos: "Restaurants & Managers" };
+  const pageTitles = { dashboard: "Tableau de bord", input: "Saisie quotidienne", history: "Historique", alerts: "Alertes & Emails", suppliers: "Fournisseurs", objectives: "Objectifs CA", inventory: "Inventaire", restos: "Restaurants & Managers" };
   return (
     <><style>{CSS}</style><ToastContainer toasts={toasts} />
     <div className="app-container">
@@ -1644,8 +1659,10 @@ export default function App() {
         <div className="sidebar-footer">{currentResto && <div style={{ padding: "8px 10px", marginBottom: 8, borderRadius: "var(--radius-sm)", background: "var(--bg-input)", display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "var(--text-secondary)", border: "1px solid var(--border)" }}><div style={{ width: 8, height: 8, borderRadius: 4, background: currentResto.color }} /><span style={{ fontWeight: 600 }}>{currentResto.name}</span></div>}<button className="theme-toggle" onClick={toggleTheme}>{theme === "dark" ? "☀️" : "🌙"}<span>{theme === "dark" ? "Thème clair" : "Thème sombre"}</span><div className={"theme-switch" + (theme === "light" ? " on" : "")} /></button><div className="user-badge"><div className="user-avatar"><Icon name="user" size={16} /></div><div className="user-info"><div className="user-name">{user.name}</div><div className="user-role">{user.role === "admin" ? "Administrateur" : "Manager"}</div></div><button className="btn-icon" onClick={handleLogout} title="Déconnexion" style={{ border: "none", padding: 4 }}><Icon name="logout" size={16} color="var(--text-muted)" /></button></div></div>
       </aside>
       <main className="main-content">
-        <div className="top-bar"><div className="top-bar-left"><button className="burger" onClick={() => setSidebarOpen(true)}><Icon name="menu" size={22} /></button><div><div className="page-title">{pageTitles[page]}</div><div className="page-date">{formatDateFull(today())}</div></div></div><div className="top-bar-right"><RestoPicker restaurants={restaurants} current={currentRestoId} setCurrent={setCurrentRestoId} isAdmin={isAdmin} /><button className="btn btn-sm btn-primary" onClick={() => setPage("input")}><Icon name="plus" size={14} color="var(--bg-primary)" /> Saisie</button></div></div>
-        {page === "multisites" && isAdmin && <MultisitesPage restaurants={restaurants} restoData={restoData} allObjectives={Object.fromEntries(restaurants.map(r => [r.id, { objectives: r.objectives, dateOverrides: r.dateOverrides }]))} />}
+        <div className="top-bar"><div className="top-bar-left"><button className="burger" onClick={() => setSidebarOpen(true)}><Icon name="menu" size={22} /></button><div><div className="page-title">{currentRestoId === "multisites" ? "Vue multisites" : pageTitles[page]}</div><div className="page-date">{formatDateFull(today())}</div></div></div><div className="top-bar-right"><RestoPicker restaurants={restaurants} current={currentRestoId} setCurrent={setCurrentRestoId} isAdmin={isAdmin} /><button className="btn btn-sm btn-primary" onClick={() => setPage("input")}><Icon name="plus" size={14} color="var(--bg-primary)" /> Saisie</button></div></div>
+        {currentRestoId === "multisites" ? (
+          <MultisitesPage restaurants={restaurants} restoData={restoData} allObjectives={Object.fromEntries(restaurants.map(r => [r.id, { objectives: r.objectives, dateOverrides: r.dateOverrides }]))} />
+        ) : (<>
         {page === "dashboard" && <DashboardPage data={currentData} restoName={currentResto?.name || "RestoPilot"} restoObjectives={currentResto?.objectives} restoOverrides={currentResto?.dateOverrides} currentRestoId={currentRestoId} />}
         {page === "input" && <InputPage data={currentData} setData={setCurrentData} addToast={addToast} isAdmin={isAdmin} restoObjectives={currentResto?.objectives} restoOverrides={currentResto?.dateOverrides} suppliers={suppliers.filter(s => s.restaurant_id === currentRestoId)} currentRestoId={currentRestoId} />}
         {page === "history" && <HistoryPage data={currentData} />}
@@ -1654,6 +1671,7 @@ export default function App() {
         {page === "objectives" && <ObjectivesPage restaurants={restaurants} currentRestoId={currentRestoId} isAdmin={isAdmin} onUpdateObjectives={handleUpdateObjectives} addToast={addToast} />}
         {page === "inventory" && <InventoryPage data={currentData} currentRestoId={currentRestoId} addToast={addToast} />}
         {isAdmin && page === "restos" && <RestosPage restaurants={restaurants} users={allUsers} currentUser={user} onAddResto={handleAddResto} onDeleteResto={handleDeleteResto} onAddUser={handleAddUser} onUpdateUser={handleUpdateUser} onDeleteUser={handleDeleteUser} onResetFebruary={resetFebruaryData} addToast={addToast} />}
+        </>)}
       </main>
     </div></>
   );
