@@ -1311,6 +1311,154 @@ const InventoryPage = ({ data, currentRestoId, addToast }) => {
   );
 };
 
+
+const MultisitesPage = ({ restaurants, restoData, allObjectives }) => {
+  const COMBO_RESTOS = {
+    "r1772490949804": "r1772490949804",
+    "r1772494496631": "r1772494496631",
+    "r1775159807169": "r1775159807169",
+  };
+
+  const [liveData, setLiveData] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [lastRefresh, setLastRefresh] = useState(null);
+
+  const fetchAll = useCallback(async () => {
+    setLoading(true);
+    const todayStr = today();
+    const now = new Date();
+
+    const results = {};
+
+    await Promise.all(restaurants.map(async (resto) => {
+      const data = restoData[resto.id] || [];
+      const obj = allObjectives[resto.id] || {};
+
+      // Objectif du jour
+      const dow = getDow(todayStr);
+      const objectif = obj.dateOverrides?.[todayStr] ?? obj.objectives?.[dow] ?? 0;
+
+      // CA du jour depuis Zelty
+      let zelty = null;
+      try {
+        const r = await fetch("/api/zelty-ca?date=" + todayStr + "&resto_id=" + resto.id);
+        if (r.ok) { const z = await r.json(); if (z.ca_ttc > 0) zelty = z; }
+      } catch(e) {}
+
+      // Ratio matières mois en cours
+      const monthData = data.filter(d => {
+        const dt = new Date(d.date + "T00:00:00");
+        return dt.getFullYear() === now.getFullYear() && dt.getMonth() === now.getMonth();
+      });
+      const caPHt = monthData.reduce((s, d) => s + (d.ca_ht || Math.round(d.ca / 1.1)), 0);
+      const achatsP = monthData.reduce((s, d) => s + d.invoices.reduce((a, i) => a + i.montant, 0), 0);
+      const ratioP = caPHt > 0 ? (achatsP / caPHt) * 100 : null;
+
+      // Production horaire depuis Combo (période mois)
+      let comboH = null;
+      if (COMBO_RESTOS[resto.id] && monthData.length > 0) {
+        try {
+          const fromDate = monthData[0].date;
+          const toDate = monthData[monthData.length - 1].date > todayStr ? todayStr : monthData[monthData.length - 1].date;
+          const r = await fetch("/api/combo-hours?from=" + fromDate + "&to=" + toDate + "&resto_id=" + resto.id);
+          if (r.ok) { const c = await r.json(); if (c.total_hours > 0) comboH = c; }
+        } catch(e) {}
+      }
+
+      const prodHoraire = comboH && caPHt > 0 ? caPHt / comboH.total_hours : null;
+
+      // CA & écart
+      const caTtc = zelty ? zelty.ca_ttc : (data.find(d => d.date === todayStr)?.ca || 0);
+      const caHt = zelty ? zelty.ca_ht : (data.find(d => d.date === todayStr)?.ca_ht || 0);
+      const ecart = caTtc - objectif;
+
+      results[resto.id] = { caTtc, caHt, objectif, ecart, ratioP, caPHt, achatsP, prodHoraire, comboH, zelty, monthDays: monthData.length };
+    }));
+
+    setLiveData(results);
+    setLastRefresh(new Date());
+    setLoading(false);
+  }, [restaurants, restoData, allObjectives]);
+
+  useEffect(() => { fetchAll(); }, [fetchAll]);
+
+  const formatTime = (d) => d ? d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }) : "";
+
+  return (
+    <div className="content-area">
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
+        <div>
+          <div style={{ fontSize: 13, color: "var(--text-muted)" }}>Vue en temps réel de tous les restaurants</div>
+          {lastRefresh && <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>Dernière mise à jour : {formatTime(lastRefresh)}</div>}
+        </div>
+        <button className="btn btn-secondary btn-sm" onClick={fetchAll} disabled={loading}>
+          {loading ? "⏳ Chargement..." : "↻ Actualiser"}
+        </button>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))", gap: 20 }}>
+        {restaurants.map(resto => {
+          const d = liveData[resto.id];
+          return (
+            <div key={resto.id} className="card" style={{ borderTop: "4px solid " + resto.color, padding: 0, overflow: "hidden" }}>
+              {/* Header */}
+              <div style={{ padding: "16px 20px", background: "var(--bg-input)", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{ width: 12, height: 12, borderRadius: 6, background: resto.color }} />
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 700, fontSize: 15 }}>{resto.name}</div>
+                  <div style={{ fontSize: 11, color: "var(--text-muted)" }}>{resto.address}</div>
+                </div>
+                {d?.zelty && <span style={{ fontSize: 9, background: "var(--accent)", color: "#fff", padding: "2px 7px", borderRadius: 4, fontWeight: 600 }}>LIVE</span>}
+              </div>
+
+              {/* KPIs */}
+              {!d ? (
+                <div style={{ padding: 32, textAlign: "center", color: "var(--text-muted)" }}>Chargement...</div>
+              ) : (
+                <div style={{ padding: 16 }}>
+                  {/* Ligne 1 : CA + Écart */}
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
+                    <div style={{ padding: "12px 14px", background: "var(--accent-bg)", borderRadius: "var(--radius-sm)", border: "1px solid rgba(74,222,128,0.15)" }}>
+                      <div style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 4 }}>CA du jour</div>
+                      <div style={{ fontSize: 22, fontWeight: 700, color: "var(--accent)" }}>{formatCurrency(d.caTtc)}</div>
+                      <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>HT : {formatCurrency(d.caHt)}</div>
+                    </div>
+                    <div style={{ padding: "12px 14px", background: d.ecart >= 0 ? "var(--accent-bg)" : "var(--red-bg)", borderRadius: "var(--radius-sm)", border: "1px solid " + (d.ecart >= 0 ? "rgba(74,222,128,0.15)" : "rgba(248,113,113,0.2)") }}>
+                      <div style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 4 }}>Écart objectif</div>
+                      <div style={{ fontSize: 22, fontWeight: 700, color: d.ecart >= 0 ? "var(--accent)" : "var(--red)" }}>{(d.ecart >= 0 ? "+" : "") + formatCurrency(d.ecart)}</div>
+                      <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>Obj : {formatCurrency(d.objectif)}</div>
+                    </div>
+                  </div>
+
+                  {/* Ligne 2 : Ratio + Prod horaire */}
+                  <div style={{ display: "grid", gridTemplateColumns: d.prodHoraire !== null ? "1fr 1fr" : "1fr", gap: 10 }}>
+                    <div style={{ padding: "12px 14px", background: d.ratioP !== null && d.ratioP > RATIO_ALERT_THRESHOLD ? "var(--red-bg)" : "var(--gold-bg)", borderRadius: "var(--radius-sm)", border: "1px solid " + (d.ratioP !== null && d.ratioP > RATIO_ALERT_THRESHOLD ? "rgba(248,113,113,0.2)" : "rgba(251,191,36,0.15)") }}>
+                      <div style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 4 }}>Ratio matières mois</div>
+                      <div style={{ fontSize: 22, fontWeight: 700, color: d.ratioP !== null && d.ratioP > RATIO_ALERT_THRESHOLD ? "var(--red)" : "var(--gold)" }}>
+                        {d.ratioP !== null ? formatPct(d.ratioP) : "—"}
+                      </div>
+                      <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>
+                        {d.monthDays} jours · {formatCurrency(d.achatsP)}
+                      </div>
+                    </div>
+                    {d.prodHoraire !== null && (
+                      <div style={{ padding: "12px 14px", background: "var(--blue-bg)", borderRadius: "var(--radius-sm)", border: "1px solid rgba(96,165,250,0.15)" }}>
+                        <div style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 4, display: "flex", alignItems: "center", gap: 4 }}>Prod. horaire <span style={{ fontSize: 8, background: "var(--blue)", color: "#fff", padding: "1px 5px", borderRadius: 3 }}>Combo</span></div>
+                        <div style={{ fontSize: 22, fontWeight: 700, color: "var(--blue)" }}>{formatCurrency(d.prodHoraire)}<span style={{ fontSize: 12, fontWeight: 400 }}>/h</span></div>
+                        <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>{d.comboH?.total_hours}h · CA HT {formatCurrency(d.caPHt)}</div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
 export default function App() {
   const [user, setUser] = useState(() => {
     try {
@@ -1474,6 +1622,7 @@ export default function App() {
 
   const navItems = [
     { id: "dashboard", label: "Tableau de bord", icon: "dashboard" },
+    ...(isAdmin ? [{ id: "multisites", label: "Vue multisites", icon: "target" }] : []),
     { id: "input", label: "Saisie du jour", icon: "input" },
     { id: "history", label: "Historique", icon: "history" },
     { id: "alerts", label: "Alertes & Emails", icon: "alert" },
@@ -1484,7 +1633,7 @@ export default function App() {
   ];
   if (!user) return <><style>{CSS}</style><LoginPage onLogin={setUser} /></>;
   if (!dbReady) return <><style>{CSS}</style><div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: "var(--bg-primary)", color: "var(--text-primary)", fontFamily: "Inter, sans-serif" }}><div style={{ textAlign: "center" }}><div style={{ fontSize: 28, fontWeight: 700, marginBottom: 12 }}>RestoPilot</div><div style={{ color: "var(--text-muted)" }}>Chargement des données...</div></div></div></>;
-  const pageTitles = { dashboard: "Tableau de bord", input: "Saisie quotidienne", history: "Historique", alerts: "Alertes & Emails", suppliers: "Fournisseurs", objectives: "Objectifs CA", inventory: "Inventaire", restos: "Restaurants & Managers" };
+  const pageTitles = { multisites: "Vue multisites", dashboard: "Tableau de bord", input: "Saisie quotidienne", history: "Historique", alerts: "Alertes & Emails", suppliers: "Fournisseurs", objectives: "Objectifs CA", inventory: "Inventaire", restos: "Restaurants & Managers" };
   return (
     <><style>{CSS}</style><ToastContainer toasts={toasts} />
     <div className="app-container">
@@ -1496,6 +1645,7 @@ export default function App() {
       </aside>
       <main className="main-content">
         <div className="top-bar"><div className="top-bar-left"><button className="burger" onClick={() => setSidebarOpen(true)}><Icon name="menu" size={22} /></button><div><div className="page-title">{pageTitles[page]}</div><div className="page-date">{formatDateFull(today())}</div></div></div><div className="top-bar-right"><RestoPicker restaurants={restaurants} current={currentRestoId} setCurrent={setCurrentRestoId} isAdmin={isAdmin} /><button className="btn btn-sm btn-primary" onClick={() => setPage("input")}><Icon name="plus" size={14} color="var(--bg-primary)" /> Saisie</button></div></div>
+        {page === "multisites" && isAdmin && <MultisitesPage restaurants={restaurants} restoData={restoData} allObjectives={Object.fromEntries(restaurants.map(r => [r.id, { objectives: r.objectives, dateOverrides: r.dateOverrides }]))} />}
         {page === "dashboard" && <DashboardPage data={currentData} restoName={currentResto?.name || "RestoPilot"} restoObjectives={currentResto?.objectives} restoOverrides={currentResto?.dateOverrides} currentRestoId={currentRestoId} />}
         {page === "input" && <InputPage data={currentData} setData={setCurrentData} addToast={addToast} isAdmin={isAdmin} restoObjectives={currentResto?.objectives} restoOverrides={currentResto?.dateOverrides} suppliers={suppliers.filter(s => s.restaurant_id === currentRestoId)} currentRestoId={currentRestoId} />}
         {page === "history" && <HistoryPage data={currentData} />}
