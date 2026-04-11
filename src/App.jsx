@@ -565,7 +565,10 @@ const DashboardPage = ({ data, restoName, restoObjectives, restoOverrides, curre
     setComboHoursPeriod(null); // reset avant chaque fetch
     if (!COMBO_RESTOS.includes(currentRestoId) || filteredData.length === 0) return;
     const fromDate = filteredData[0].date;
-    const toDate = filteredData[filteredData.length - 1].date;
+    // Plafonner toDate à aujourd'hui pour ne pas inclure les shifts futurs
+    const lastDate = filteredData[filteredData.length - 1].date;
+    const toDate = lastDate > today() ? today() : lastDate;
+    if (fromDate > toDate) return; // pas de données valides
     fetch("/api/combo-hours?from=" + fromDate + "&to=" + toDate + "&resto_id=" + currentRestoId)
       .then(r => r.ok ? r.json() : null)
       .then(c => { if (c && c.total_hours > 0) setComboHoursPeriod({ ...c, fromDate, toDate }); })
