@@ -8,7 +8,7 @@ const JOURS = ["Lundi","Mardi","Mercredi","Jeudi","Vendredi","Samedi","Dimanche"
 const JOURS_SHORT = ["Lun","Mar","Mer","Jeu","Ven","Sam","Dim"];
 const DEFAULT_OBJ = {0:2800,1:3000,2:3200,3:3500,4:4200,5:4800,6:2500};
 const getDow = (ds) => { const d = new Date(ds + "T00:00:00"); return (d.getDay() + 6) % 7; };
-const formatCurrency = (v) => new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(v);
+const formatCurrency = (v) => new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(v).replace(/\u202F|\u00A0/g, ' ');
 const formatPct = (v) => v.toFixed(1) + "%";
 const formatDateFR = (d) => new Date(d + "T00:00:00").toLocaleDateString("fr-FR", { day: "2-digit", month: "short" });
 const formatDateFull = (d) => new Date(d + "T00:00:00").toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
@@ -555,11 +555,6 @@ const AnnualObjectiveCard = ({ data, annualObjective, restoName }) => {
           <div style={{ background: "var(--bg-input)", borderRadius: "var(--radius-sm)", padding: "14px 16px", border: "1px solid var(--border)" }}>
             <div style={{ fontSize: 11, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.5px" }}>Moyenne quotidienne requise</div>
             <div style={{ fontSize: 22, fontWeight: 700, marginTop: 4, fontFamily: "Inter, sans-serif" }}>{formatCurrency(requiredPace)}<span style={{ fontSize: 13, color: "var(--text-muted)", fontWeight: 400 }}>/jour</span></div>
-            {dayOfYear > 1 && annualObjective > 0 && (
-              <div style={{ fontSize: 12, color: paceDiff >= 0 ? "var(--accent)" : "var(--red)", marginTop: 6 }}>
-                Pace actuel : {formatCurrency(currentPace)}/jour · écart <span style={{ fontWeight: 700 }}>{paceDiff >= 0 ? "+" : ""}{formatCurrency(paceDiff)}/j</span>
-              </div>
-            )}
           </div>
         </div>
       </div>
