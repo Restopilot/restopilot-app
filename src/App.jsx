@@ -1,25 +1,18 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart, Legend, PieChart, Pie, Cell, ComposedChart, ReferenceLine } from "recharts";
 import { createClient } from "@supabase/supabase-js";
-
 const supabase = createClient("https://yhvbnlgowccixqslijia.supabase.co", "sb_publishable_rURgUoNVrGxQm4e6OjrxsA_E5Skv2Tl");
-
 const CATEGORIES = ["Viande", "Poisson", "Légumes", "Fruits", "Boissons", "Produits laitiers", "Épicerie", "Boulangerie", "Autre"];
 const RATIO_ALERT_THRESHOLD = 28;
-
 const JOURS = ["Lundi","Mardi","Mercredi","Jeudi","Vendredi","Samedi","Dimanche"];
 const JOURS_SHORT = ["Lun","Mar","Mer","Jeu","Ven","Sam","Dim"];
 const DEFAULT_OBJ = {0:2800,1:3000,2:3200,3:3500,4:4200,5:4800,6:2500};
 const getDow = (ds) => { const d = new Date(ds + "T00:00:00"); return (d.getDay() + 6) % 7; };
-
-
-
 const formatCurrency = (v) => new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(v);
 const formatPct = (v) => v.toFixed(1) + "%";
 const formatDateFR = (d) => new Date(d + "T00:00:00").toLocaleDateString("fr-FR", { day: "2-digit", month: "short" });
 const formatDateFull = (d) => new Date(d + "T00:00:00").toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 const today = () => new Date().toISOString().split("T")[0];
-
 const Icon = ({ name, size = 20, color = "currentColor" }) => {
   const icons = {
     dashboard: <><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></>,
@@ -42,10 +35,8 @@ const Icon = ({ name, size = 20, color = "currentColor" }) => {
   };
   return (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">{icons[name]}</svg>);
 };
-
 const CSS = `
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-
   :root {
     --bg-primary: #111114;
     --bg-secondary: #18181B;
@@ -178,7 +169,6 @@ const CSS = `
   ::-webkit-scrollbar { width: 6px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
   .recharts-text { fill: var(--text-muted) !important; font-size: 11px !important; }
   .recharts-cartesian-grid-horizontal line, .recharts-cartesian-grid-vertical line { stroke: var(--border) !important; }
-
   /* ========== LIGHT THEME (Apple style) ========== */
   [data-theme="light"] {
     --bg-primary: #F4F6F9;
@@ -289,7 +279,6 @@ const CSS = `
   [data-theme="light"] .alert-banner.warning { background: rgba(217,83,107,0.05); border-color: rgba(217,83,107,0.15); }
   [data-theme="light"] ::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 3px; }
   [data-theme="light"] .remember-row { color: #475569; }
-
   /* Theme toggle switch */
   .theme-toggle {
     display: flex;
@@ -333,7 +322,6 @@ const CSS = `
     box-shadow: 0 1px 3px rgba(0,0,0,0.2);
   }
   .theme-switch.on::after { left: 18px; }
-
   /* Remember me checkbox */
   .remember-row {
     display: flex;
@@ -351,8 +339,6 @@ const CSS = `
     border-radius: 4px;
     cursor: pointer;
   }
-
-
   /* Restaurant picker */
   .resto-picker { position: relative; }
   .resto-picker-btn { display: flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--bg-card); cursor: pointer; transition: all var(--transition); font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 500; color: var(--text-primary); }
@@ -364,7 +350,6 @@ const CSS = `
   .resto-dd-item.active { background: var(--accent-bg); }
   .resto-dd-name { font-weight: 500; flex: 1; }
   .resto-dd-addr { font-size: 11px; color: var(--text-muted); }
-
   /* Objectives grid */
   .obj-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; margin-bottom: 20px; }
   .obj-day { background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 10px; text-align: center; transition: all var(--transition); }
@@ -378,22 +363,17 @@ const CSS = `
   .obj-day-input:read-only:focus { border-color: var(--border); }
   .obj-total { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-radius: var(--radius); background: var(--accent-bg); border: 1px solid rgba(74,222,128,0.15); }
   .ovr-item { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border-radius: var(--radius-sm); margin-bottom: 4px; background: var(--bg-input); border: 1px solid var(--border); }
-
   /* Resto cards */
   .resto-card { border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; margin-bottom: 10px; transition: all var(--transition); background: var(--bg-card); }
   .resto-card:hover { border-color: var(--border-light); box-shadow: var(--shadow); }
-
   /* Modal */
   .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 300; animation: fadeIn 0.2s ease; }
   .modal-content { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 32px; max-width: 480px; width: 90vw; box-shadow: var(--shadow-lg); animation: scaleIn 0.2s ease; }
   @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
   @keyframes scaleIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
-
   @media (max-width: 768px) { .obj-grid { grid-template-columns: repeat(4, 1fr); } }
   @media (max-width: 480px) { .obj-grid { grid-template-columns: repeat(2, 1fr); } }
-
 `;
-
 const CATEGORY_COLORS = {
   Viande: "#F87171", Poisson: "#60A5FA", "Légumes": "#4ADE80", Fruits: "#FBBF24",
   Boissons: "#A78BFA", "Produits laitiers": "#F9A8D4", "Épicerie": "#FB923C",
@@ -404,15 +384,11 @@ const CATEGORY_EMOJIS = {
   Boissons: "🍷", "Produits laitiers": "🧀", "Épicerie": "🧂",
   Boulangerie: "🥖", Autre: "📦",
 };
-
 const CustomTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null;
   return (<div className="custom-tooltip"><div className="label">{label}</div>{payload.map((p, i) => (<div key={i} className="item" style={{ color: p.color }}>{p.name}: <strong>{typeof p.value === "number" && p.name?.includes("Ratio") ? formatPct(p.value) : formatCurrency(p.value)}</strong></div>))}</div>);
 };
-
 const ToastContainer = ({ toasts }) => (<div className="toast-container">{toasts.map((t) => (<div key={t.id} className={"toast " + t.type}>{t.message}</div>))}</div>);
-
-
 const RestoPicker = ({ restaurants, current, setCurrent, isAdmin }) => {
   const [open, setOpen] = useState(false);
   const isMultisite = current === "multisites";
@@ -446,7 +422,6 @@ const RestoPicker = ({ restaurants, current, setCurrent, isAdmin }) => {
     </div>
   );
 };
-
 const LoginPage = ({ onLogin }) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -476,7 +451,6 @@ const LoginPage = ({ onLogin }) => {
     </div></div>
   );
 };
-
 const exportCSV = (data, restoName) => {
   const BOM = "\uFEFF";
   const headers = ["Date","CA TTC","CA HT","Objectif","Atteinte (%)","Achats HT","Ratio (%)","Factures"];
@@ -493,7 +467,6 @@ const exportCSV = (data, restoName) => {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a"); a.href = url; a.download = (restoName || "restopilot") + "_export.csv"; a.click(); URL.revokeObjectURL(url);
 };
-
 const exportPDF = (data, restoName, periodLabel) => {
   const ht = data.reduce((s,d) => s + (d.ca_ht || Math.round(d.ca / 1.1)), 0);
   const ca = data.reduce((s,d) => s + d.ca, 0);
@@ -516,17 +489,91 @@ const exportPDF = (data, restoName, periodLabel) => {
   w.document.close();
   setTimeout(() => w.print(), 300);
 };
+// NEW: Annual objective progress card (donut + KPIs)
+const AnnualObjectiveCard = ({ data, annualObjective, restoName }) => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const yearStart = year + "-01-01";
+  const yearEnd = year + "-12-31";
+  const ytdData = data.filter(d => d.date >= yearStart && d.date <= yearEnd);
+  const totalYTD = ytdData.reduce((s, d) => s + d.ca, 0);
+  const startOfYear = new Date(year, 0, 1);
+  const dayOfYear = Math.floor((now - startOfYear) / 86400000) + 1;
+  const isLeap = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+  const totalDays = isLeap ? 366 : 365;
+  const daysRemaining = Math.max(0, totalDays - dayOfYear);
+  const progressActual = annualObjective > 0 ? (totalYTD / annualObjective) * 100 : 0;
+  const progressArc = Math.min(100, progressActual);
+  const remaining = Math.max(0, annualObjective - totalYTD);
+  const currentPace = dayOfYear > 0 ? totalYTD / dayOfYear : 0;
+  const requiredPace = daysRemaining > 0 ? remaining / daysRemaining : 0;
+  const paceDiff = currentPace - requiredPace;
 
-const DashboardPage = ({ data, restoName, restoObjectives, restoOverrides, currentRestoId }) => {
+  if (annualObjective <= 0) {
+    return (
+      <div className="card" style={{ marginBottom: 24, textAlign: "center", padding: "28px 24px" }}>
+        <div style={{ fontSize: 16, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 6 }}>Objectif annuel {year}</div>
+        <div style={{ fontSize: 13, color: "var(--text-muted)" }}>
+          Aucun objectif annuel défini. Renseignez-le dans l'onglet <strong style={{ color: "var(--accent)" }}>Objectifs CA</strong> pour activer le suivi.
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="card" style={{ marginBottom: 24 }}>
+      <div className="card-header">
+        <div>
+          <div className="card-title">Objectif annuel {year}</div>
+          <div className="card-subtitle">Progression cumulée — {restoName}</div>
+        </div>
+      </div>
+      <div className="annual-obj-grid" style={{ display: "grid", gridTemplateColumns: "320px minmax(0, 1fr)", gap: 32, alignItems: "center" }}>
+        <div style={{ position: "relative", width: 320, height: 320, margin: "0 auto" }}>
+          <svg viewBox="0 0 100 100" style={{ width: "100%", height: "100%", transform: "rotate(-90deg)", display: "block" }}>
+            <circle cx="50" cy="50" r="44" fill="none" stroke="var(--border)" strokeWidth="8" pathLength="100" />
+            <circle cx="50" cy="50" r="44" fill="none" stroke="var(--accent)" strokeWidth="8" pathLength="100" strokeDasharray={progressArc + " 100"} strokeLinecap="round" />
+          </svg>
+          <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", textAlign: "center", width: "70%" }}>
+            <div style={{ fontSize: 56, fontWeight: 700, color: "var(--accent)", lineHeight: 1, fontFamily: "Inter, sans-serif" }}>{progressActual.toFixed(1)}%</div>
+            <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 6, textTransform: "uppercase", letterSpacing: "0.5px" }}>d'atteinte</div>
+            <div style={{ marginTop: 18, paddingTop: 16, borderTop: "1px solid var(--border)" }}>
+              <div style={{ fontSize: 22, fontWeight: 700, color: "var(--accent)", lineHeight: 1, fontFamily: "Inter, sans-serif" }}>{formatCurrency(totalYTD)}</div>
+              <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 4 }}>sur {formatCurrency(annualObjective)}</div>
+            </div>
+          </div>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 10 }}>
+          <div style={{ background: "var(--bg-input)", borderRadius: "var(--radius-sm)", padding: "14px 16px", border: "1px solid var(--border)" }}>
+            <div style={{ fontSize: 11, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.5px" }}>Reste à faire</div>
+            <div style={{ fontSize: 22, fontWeight: 700, marginTop: 4, fontFamily: "Inter, sans-serif" }}>{formatCurrency(remaining)}</div>
+          </div>
+          <div style={{ background: "var(--bg-input)", borderRadius: "var(--radius-sm)", padding: "14px 16px", border: "1px solid var(--border)" }}>
+            <div style={{ fontSize: 11, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.5px" }}>Jours restants</div>
+            <div style={{ fontSize: 22, fontWeight: 700, marginTop: 4, fontFamily: "Inter, sans-serif" }}>{daysRemaining} <span style={{ fontSize: 14, color: "var(--text-muted)", fontWeight: 400 }}>/ {totalDays}</span></div>
+          </div>
+          <div style={{ background: "var(--bg-input)", borderRadius: "var(--radius-sm)", padding: "14px 16px", border: "1px solid var(--border)" }}>
+            <div style={{ fontSize: 11, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.5px" }}>Moyenne quotidienne requise</div>
+            <div style={{ fontSize: 22, fontWeight: 700, marginTop: 4, fontFamily: "Inter, sans-serif" }}>{formatCurrency(requiredPace)}<span style={{ fontSize: 13, color: "var(--text-muted)", fontWeight: 400 }}>/jour</span></div>
+            {dayOfYear > 1 && annualObjective > 0 && (
+              <div style={{ fontSize: 12, color: paceDiff >= 0 ? "var(--accent)" : "var(--red)", marginTop: 6 }}>
+                Pace actuel : {formatCurrency(currentPace)}/jour · écart <span style={{ fontWeight: 700 }}>{paceDiff >= 0 ? "+" : ""}{formatCurrency(paceDiff)}/j</span>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+const DashboardPage = ({ data, restoName, restoObjectives, restoOverrides, currentRestoId, annualObjective }) => {
   const [period, setPeriod] = useState("month");
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
   const [zeltyLive, setZeltyLive] = useState(null);
-
   const [inventories, setInventories] = useState([]);
   const [comboHours, setComboHours] = useState(null);
   const [comboHoursPeriod, setComboHoursPeriod] = useState(null);
-
   useEffect(() => {
     setZeltyLive(null);
     fetch("/api/zelty-ca?date=" + today() + "&resto_id=" + (currentRestoId || ""))
@@ -534,13 +581,11 @@ const DashboardPage = ({ data, restoName, restoObjectives, restoOverrides, curre
       .then(z => { if (z && z.ca_ttc > 0) setZeltyLive(z); })
       .catch(() => {});
   }, [currentRestoId]);
-
   useEffect(() => {
     if (!currentRestoId) return;
     supabase.from("inventory").select("*").eq("restaurant_id", currentRestoId).order("date", { ascending: true })
       .then(({ data: rows }) => { if (rows) setInventories(rows); });
   }, [currentRestoId]);
-
   useEffect(() => {
     const COMBO_RESTOS = ["r1772490949804", "r1772494496631", "r1775159807169"];
     if (!COMBO_RESTOS.includes(currentRestoId)) { setComboHours(null); setComboHoursPeriod(null); return; }
@@ -552,11 +597,7 @@ const DashboardPage = ({ data, restoName, restoObjectives, restoOverrides, curre
       .then(c => { if (c && c.total_hours !== null) setComboHours({ ...c, date: yStr }); })
       .catch(() => {});
   }, [currentRestoId]);
-
-
-
   const periodLabel = period === "week" ? "Semaine en cours" : period === "month" ? "Mois en cours" : period === "quarter" ? "Trimestre en cours" : period === "year" ? "Année en cours" : "Période personnalisée";
-
   const filteredData = useMemo(() => {
     const now = new Date();
     if (period === "week") {
@@ -575,7 +616,6 @@ const DashboardPage = ({ data, restoName, restoObjectives, restoOverrides, curre
     }
     return data.filter(d => { const dt = new Date(d.date + "T00:00:00"); return dt.getFullYear() === now.getFullYear() && dt.getMonth() === now.getMonth(); });
   }, [data, period, customFrom, customTo]);
-
   useEffect(() => {
     const COMBO_RESTOS = ["r1772490949804", "r1772494496631", "r1775159807169"];
     setComboHoursPeriod(null); // reset avant chaque fetch
@@ -590,13 +630,11 @@ const DashboardPage = ({ data, restoName, restoObjectives, restoOverrides, curre
       .then(c => { if (c && c.total_hours > 0) setComboHoursPeriod({ ...c, fromDate, toDate }); })
       .catch(() => {});
   }, [currentRestoId, filteredData]);
-
   const todayData = data.find(d => d.date === today());
   const liveCa = zeltyLive ? zeltyLive.ca_ttc : 0;
   const liveCaHt = zeltyLive ? zeltyLive.ca_ht : 0;
   const todayObj = restoOverrides?.[today()] ?? restoObjectives?.[getDow(today())] ?? 0;
   const latest = todayData || { date: today(), ca: liveCa, ca_ht: liveCaHt, objectif: todayObj, invoices: [] };
-
   const stats = useMemo(() => {
     const totalAchats = latest.invoices.reduce((s, i) => s + i.montant, 0);
     const ht = latest.ca_ht || Math.round(latest.ca / 1.1);
@@ -635,13 +673,11 @@ const DashboardPage = ({ data, restoName, restoObjectives, restoOverrides, curre
       ? caPHt / comboHoursPeriod.total_hours : null;
     return { ca: latest.ca, ca_ht: ht, objectif: latest.objectif, totalAchats, ratio, ecart, atteinte, caP, caPHt, taP, ratioP, avgAtteinte, ratioCorrige, ratioProdHoraire, ratioProdHorairePeriode };
   }, [data, latest, filteredData, comboHours, comboHoursPeriod]);
-
   const chartData = useMemo(() => filteredData.slice(-30).map(d => {
     const ta = d.invoices.reduce((s, i) => s + i.montant, 0);
     const dht = d.ca_ht || Math.round(d.ca / 1.1);
     return { date: formatDateFR(d.date), "CA TTC": d.ca, "CA HT": dht, Objectif: d.objectif, Achats: ta, "Ratio (%)": dht > 0 ? parseFloat(((ta / dht) * 100).toFixed(1)) : 0 };
   }), [filteredData]);
-
   const monthlyRatioData = useMemo(() => {
     const months = {};
     data.forEach(d => {
@@ -656,19 +692,16 @@ const DashboardPage = ({ data, restoName, restoObjectives, restoOverrides, curre
       return { mois: label, "Ratio (%)": v.ht > 0 ? parseFloat(((v.ta / v.ht) * 100).toFixed(1)) : 0, "CA HT": v.ht, "Achats HT": v.ta };
     });
   }, [data]);
-
   const categoryData = useMemo(() => {
     const cats = {};
     filteredData.forEach(d => d.invoices.forEach(i => { cats[i.categorie] = (cats[i.categorie] || 0) + i.montant; }));
     return Object.entries(cats).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
   }, [filteredData]);
-
   const periodBtnStyle = (p) => ({
     padding: "6px 14px", borderRadius: 6, border: period === p ? "none" : "1px solid var(--border)",
     background: period === p ? "var(--accent)" : "var(--bg-card)", color: period === p ? "#fff" : "var(--text-secondary)",
     fontSize: 13, fontWeight: 500, cursor: "pointer", transition: "all 0.15s"
   });
-
   return (
     <div className="content-area">
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12, marginBottom: 20 }}>
@@ -700,6 +733,7 @@ const DashboardPage = ({ data, restoName, restoObjectives, restoOverrides, curre
         <div className="kpi-card purple"><div className="kpi-label">Achats HT période</div><div className="kpi-value purple">{formatCurrency(stats.taP)}</div><div className="kpi-sub">vs CA HT : {formatCurrency(stats.caPHt)}</div></div>
         {(stats.ratioProdHoraire !== null || stats.ratioProdHorairePeriode !== null) ? (<div className="kpi-card blue"><div className="kpi-label" style={{ display: "flex", alignItems: "center", gap: 6 }}>Prod. horaire {stats.ratioProdHorairePeriode !== null ? "période" : "J-1"}<span style={{ fontSize: 9, background: "var(--blue)", color: "#fff", padding: "1px 6px", borderRadius: 4 }}>Combo</span></div><div className="kpi-value blue">{formatCurrency(stats.ratioProdHorairePeriode ?? stats.ratioProdHoraire)}<span style={{ fontSize: 14, fontWeight: 400 }}>/h</span></div><div className="kpi-sub">{stats.ratioProdHorairePeriode !== null ? `${comboHoursPeriod?.total_hours}h · CA HT ${formatCurrency(stats.caPHt)}` : `J-1 · ${comboHours?.total_hours}h travaillées`}</div></div>) : <div />}
       </div>
+      <AnnualObjectiveCard data={data} annualObjective={annualObjective} restoName={restoName} />
       <div className="grid-2">
         <div className="card"><div className="card-header"><div><div className="card-title">Évolution CA vs Objectif</div><div className="card-subtitle">{periodLabel}</div></div></div><div style={{ height: 280 }}><ResponsiveContainer width="100%" height="100%"><AreaChart data={chartData}><defs><linearGradient id="gradCA" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#1A8C5B" stopOpacity={0.2} /><stop offset="95%" stopColor="#1A8C5B" stopOpacity={0} /></linearGradient></defs><CartesianGrid strokeDasharray="3 3" stroke="#2C2C30" /><XAxis dataKey="date" tick={{ fill: "#63636B", fontSize: 11 }} /><YAxis tick={{ fill: "#63636B", fontSize: 11 }} /><Tooltip content={<CustomTooltip />} /><Area type="monotone" dataKey="CA TTC" stroke="#1A8C5B" fill="url(#gradCA)" strokeWidth={2} name="CA TTC" /><Line type="monotone" dataKey="Objectif" stroke="#D9536B" strokeWidth={2} strokeDasharray="6 3" dot={false} name="Objectif" /></AreaChart></ResponsiveContainer></div></div>
         <div className="card"><div className="card-header"><div><div className="card-title">Évolution du Ratio (période)</div><div className="card-subtitle">Seuil : {RATIO_ALERT_THRESHOLD}%</div></div></div><div style={{ height: 280 }}><ResponsiveContainer width="100%" height="100%"><AreaChart data={chartData}><defs><linearGradient id="gradRatio" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#D9536B" stopOpacity={0.2} /><stop offset="95%" stopColor="#D9536B" stopOpacity={0} /></linearGradient></defs><CartesianGrid strokeDasharray="3 3" stroke="#2C2C30" /><XAxis dataKey="date" tick={{ fill: "#63636B", fontSize: 11 }} /><YAxis tick={{ fill: "#63636B", fontSize: 11 }} domain={[0, 45]} /><Tooltip content={<CustomTooltip />} /><Area type="monotone" dataKey="Ratio (%)" stroke="#D9536B" fill="url(#gradRatio)" strokeWidth={2} /><Line type="monotone" dataKey={() => RATIO_ALERT_THRESHOLD} stroke="#D9536B" strokeWidth={1.5} strokeDasharray="4 4" dot={false} name="Seuil" /></AreaChart></ResponsiveContainer></div></div>
@@ -712,7 +746,6 @@ const DashboardPage = ({ data, restoName, restoObjectives, restoOverrides, curre
     </div>
   );
 };
-
 const InputPage = ({ data, setData, addToast, isAdmin, restoObjectives, restoOverrides, suppliers, currentRestoId }) => {
   const todayStr = today();
   const existing = data.find((d) => d.date === todayStr);
@@ -725,7 +758,6 @@ const InputPage = ({ data, setData, addToast, isAdmin, restoObjectives, restoOve
   const [zeltyLoading, setZeltyLoading] = useState(false);
   const [zeltyInfo, setZeltyInfo] = useState(null);
   const getRestoObj = (ds) => { if (restoOverrides && restoOverrides[ds]) return restoOverrides[ds]; if (restoObjectives) { const dow = getDow(ds); return restoObjectives[dow] || 0; } return 0; };
-  
   const fetchZeltyCA = useCallback(async (date) => {
     setZeltyLoading(true);
     setZeltyInfo(null);
@@ -746,7 +778,6 @@ const InputPage = ({ data, setData, addToast, isAdmin, restoObjectives, restoOve
     }
     setZeltyLoading(false);
   }, [addToast]);
-
   useEffect(() => {
     const dayData = data.find((d) => d.date === selectedDate);
     setCa(dayData?.ca?.toString() || "");
@@ -755,12 +786,10 @@ const InputPage = ({ data, setData, addToast, isAdmin, restoObjectives, restoOve
     setObjectif(obj ? obj.toString() : "");
     setInvoices(dayData?.invoices || []);
     setZeltyInfo(null);
-    // Auto-fetch from Zelty if no CA saved yet for this date
     if (!dayData?.ca) {
       fetchZeltyCA(selectedDate);
     }
   }, [selectedDate, data, restoObjectives, restoOverrides]);
-
   const addInvoice = () => { if (!newInvoice.fournisseur || !newInvoice.montant) return; setInvoices([...invoices, { id: selectedDate + "-" + Date.now(), fournisseur: newInvoice.fournisseur, montant: parseFloat(newInvoice.montant), categorie: newInvoice.categorie, date: selectedDate }]); setNewInvoice({ fournisseur: "", montant: "", categorie: CATEGORIES[0] }); };
   const removeInvoice = (id) => setInvoices(invoices.filter((i) => i.id !== id));
   const saveDay = () => {
@@ -816,7 +845,6 @@ const InputPage = ({ data, setData, addToast, isAdmin, restoObjectives, restoOve
     </div></div>
   );
 };
-
 const HistoryPage = ({ data }) => {
   const [period, setPeriod] = useState("30");
   const filteredData = useMemo(() => data.slice(-parseInt(period)), [data, period]);
@@ -826,17 +854,14 @@ const HistoryPage = ({ data }) => {
     <tbody>{[...filteredData].reverse().map((d) => { const ta = d.invoices.reduce((s, i) => s + i.montant, 0); const ht = d.ca_ht || Math.round(d.ca / 1.1); const ratio = ht > 0 ? (ta / ht) * 100 : 0; const atteinte = d.objectif > 0 ? (d.ca / d.objectif) * 100 : 0; const ecart = d.ca - d.objectif; return (<tr key={d.date}><td style={{ fontWeight: 500 }}>{formatDateFR(d.date)}</td><td className="td-mono">{formatCurrency(d.ca)}</td><td className="td-mono" style={{ color: "var(--text-secondary)" }}>{formatCurrency(ht)}</td><td className="td-mono">{formatCurrency(d.objectif)}</td><td className="td-mono">{formatCurrency(ta)}</td><td><span className={"badge " + (ratio > RATIO_ALERT_THRESHOLD ? "badge-red" : ratio > 25 ? "badge-gold" : "badge-green")}>{formatPct(ratio)}</span></td><td><span className={"badge " + (atteinte >= 100 ? "badge-green" : atteinte >= 90 ? "badge-gold" : "badge-red")}>{formatPct(atteinte)}</span></td><td className="td-mono" style={{ color: ecart >= 0 ? "var(--accent)" : "var(--red)" }}>{ecart >= 0 ? "+" : ""}{formatCurrency(ecart)}</td></tr>); })}</tbody></table></div></div></div>
   );
 };
-
 const AlertsPage = ({ data, addToast, currentRestoId }) => {
   const [recipients, setRecipients] = useState([]);
   const [newEmail, setNewEmail] = useState("");
   const [newName, setNewName] = useState("");
   const [sending, setSending] = useState(false);
-
   useEffect(() => {
     supabase.from("alert_recipients").select("*").eq("restaurant_id", currentRestoId).order("id").then(({ data: r }) => { if (r) setRecipients(r); });
   }, [currentRestoId]);
-
   const addRecipient = async () => {
     if (!newEmail || !newEmail.includes("@")) { addToast("Email invalide", "error"); return; }
     const { data: r, error } = await supabase.from("alert_recipients").insert({ email: newEmail.trim(), name: newName.trim() || null, active: true, restaurant_id: currentRestoId }).select().single();
@@ -845,24 +870,20 @@ const AlertsPage = ({ data, addToast, currentRestoId }) => {
     setNewEmail(""); setNewName("");
     addToast("Destinataire ajouté : " + newEmail, "success");
   };
-
   const toggleRecipient = async (id, active) => {
     await supabase.from("alert_recipients").update({ active: !active }).eq("id", id);
     setRecipients(recipients.map(r => r.id === id ? { ...r, active: !active } : r));
   };
-
   const removeRecipient = async (id) => {
     if (!window.confirm("Supprimer ce destinataire ?")) return;
     await supabase.from("alert_recipients").delete().eq("id", id);
     setRecipients(recipients.filter(r => r.id !== id));
     addToast("Destinataire supprimé", "info");
   };
-
   const sendTestEmail = async () => {
     const active = recipients.filter(r => r.active);
     if (!active.length) { addToast("Aucun destinataire actif", "error"); return; }
     setSending(true);
-    // Choisir le bon endpoint selon le restaurant actif
     const WAFFLE_CERGY_ID = "r1772494496631";
     const WAFFLE_BELLE_EPINE_ID = "r1775159807169";
     const endpoint = currentRestoId === WAFFLE_CERGY_ID ? "/api/send-report-waffle"
@@ -876,9 +897,7 @@ const AlertsPage = ({ data, addToast, currentRestoId }) => {
     } catch (e) { addToast("Erreur : " + e.message, "error"); }
     setSending(false);
   };
-
   const alerts = useMemo(() => data.filter((d) => { const ta = d.invoices.reduce((s, i) => s + i.montant, 0); const ht = d.ca_ht || Math.round(d.ca / 1.1); return ht > 0 && (ta / ht) * 100 > RATIO_ALERT_THRESHOLD; }).reverse().slice(0, 20), [data]);
-
   return (
     <div className="content-area"><div className="grid-2" style={{ alignItems: "start" }}>
       <div>
@@ -920,23 +939,31 @@ const AlertsPage = ({ data, addToast, currentRestoId }) => {
     </div></div>
   );
 };
-
-
 const ObjectivesPage = ({ restaurant, restaurants, currentRestoId, isAdmin, onUpdateObjectives, addToast }) => {
   const resto = restaurants.find(r => r.id === currentRestoId);
   const [draft, setDraft] = useState({ ...(resto?.objectives || DEFAULT_OBJ) });
+  const [draftAnnual, setDraftAnnual] = useState(resto?.annualObjective ? resto.annualObjective.toString() : "");
   const [oD, setOD] = useState("");
   const [oV, setOV] = useState("");
   const todayDow = getDow(today());
+  const currentYear = new Date().getFullYear();
   const weekTotal = useMemo(() => Object.values(draft).reduce((s, v) => s + (parseFloat(v) || 0), 0), [draft]);
-
-  useEffect(() => { if (resto) setDraft({ ...(resto.objectives || DEFAULT_OBJ) }); }, [currentRestoId, resto]);
-
+  useEffect(() => {
+    if (resto) {
+      setDraft({ ...(resto.objectives || DEFAULT_OBJ) });
+      setDraftAnnual(resto.annualObjective ? resto.annualObjective.toString() : "");
+    }
+  }, [currentRestoId, resto]);
   const saveDraft = () => {
     const p = {};
     for (let i = 0; i < 7; i++) p[i] = parseFloat(draft[i]) || 0;
     onUpdateObjectives(currentRestoId, { objectives: p });
     addToast("Objectifs enregistrés pour " + resto.name, "success");
+  };
+  const saveAnnual = () => {
+    const value = parseFloat(draftAnnual) || 0;
+    onUpdateObjectives(currentRestoId, { annualObjective: value });
+    addToast("Objectif annuel enregistré : " + formatCurrency(value), "success");
   };
   const addOverride = () => {
     if (!oD || !oV) return;
@@ -950,9 +977,7 @@ const ObjectivesPage = ({ restaurant, restaurants, currentRestoId, isAdmin, onUp
     addToast("Exception supprimée", "info");
   };
   const sortedOverrides = Object.entries(resto?.dateOverrides || {}).sort((a, b) => b[0].localeCompare(a[0]));
-
   if (!resto) return <div className="content-area"><p>Sélectionnez un restaurant.</p></div>;
-
   return (
     <div className="content-area">
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}><div className="resto-dot" style={{ background: resto.color, width: 14, height: 14, borderRadius: 7 }} /><span style={{ fontSize: 16, fontWeight: 600 }}>{resto.name}</span>{!isAdmin && <span className="badge badge-gold" style={{ marginLeft: 8 }}>Lecture seule</span>}</div>
@@ -969,6 +994,25 @@ const ObjectivesPage = ({ restaurant, restaurants, currentRestoId, isAdmin, onUp
             ))}</div>
             <div className="obj-total"><div style={{ fontSize: 14, color: "var(--text-secondary)", fontWeight: 500 }}>Total semaine</div><div style={{ fontSize: 22, fontWeight: 700, color: "var(--accent)", fontFamily: "Inter, sans-serif", letterSpacing: "-0.5px" }}>{formatCurrency(weekTotal)}</div></div>
             {isAdmin && <button className="btn btn-primary" onClick={saveDraft} style={{ width: "100%", justifyContent: "center", marginTop: 16 }}><Icon name="check" size={16} color="var(--bg-primary)" /> Enregistrer les objectifs</button>}
+          </div>
+          <div className="card" style={{ marginBottom: 16 }}>
+            <div className="card-header"><div><div className="card-title">Objectif annuel {currentYear}</div><div className="card-subtitle">CA TTC cible pour l'année en cours</div></div></div>
+            <div style={{ display: "flex", gap: 10, alignItems: "flex-end" }}>
+              <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
+                <label className="form-label">Objectif (€ TTC)</label>
+                <input className="form-input" type="number" value={draftAnnual} onChange={(e) => { if (isAdmin) setDraftAnnual(e.target.value); }} min="0" step="10000" placeholder="2 500 000" readOnly={!isAdmin} style={!isAdmin ? { opacity: 0.6, cursor: "not-allowed" } : {}} />
+              </div>
+              {isAdmin && (
+                <button className="btn btn-primary" onClick={saveAnnual} style={{ height: 42 }}>
+                  <Icon name="check" size={15} color="var(--bg-primary)" /> Enregistrer
+                </button>
+              )}
+            </div>
+            {draftAnnual && parseFloat(draftAnnual) > 0 && (
+              <div style={{ marginTop: 12, padding: "10px 14px", background: "var(--accent-bg)", borderRadius: "var(--radius-sm)", border: "1px solid rgba(74,222,128,0.15)", fontSize: 12, color: "var(--text-secondary)" }}>
+                Soit ≈ <strong style={{ color: "var(--accent)" }}>{formatCurrency(parseFloat(draftAnnual) / 365)}</strong> en moyenne par jour sur l'année
+              </div>
+            )}
           </div>
         </div>
         <div>
@@ -996,7 +1040,6 @@ const ObjectivesPage = ({ restaurant, restaurants, currentRestoId, isAdmin, onUp
     </div>
   );
 };
-
 const RestosPage = ({ restaurants, users, currentUser, onAddResto, onDeleteResto, onAddUser, onUpdateUser, onDeleteUser, onResetFebruary, addToast }) => {
   const [showAdd, setShowAdd] = useState(false);
   const [nr, setNr] = useState({ name: "", address: "", color: "#4ADE80" });
@@ -1029,7 +1072,6 @@ const RestosPage = ({ restaurants, users, currentUser, onAddResto, onDeleteResto
     </div>
   );
 };
-
 const SuppliersPage = ({ suppliers, setSuppliers, data, addToast, isAdmin, currentRestoId }) => {
   const [newName, setNewName] = useState("");
   const [newCat, setNewCat] = useState(CATEGORIES[0]);
@@ -1037,14 +1079,11 @@ const SuppliersPage = ({ suppliers, setSuppliers, data, addToast, isAdmin, curre
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
   const [filterSupplier, setFilterSupplier] = useState("all");
-
   const addSupplier = async () => {
     if (!newName.trim()) { addToast("Nom requis", "error"); return; }
-    // Vérifier si le fournisseur existe déjà (actif ou inactif) pour ce restaurant
     const { data: existing } = await supabase.from("suppliers").select("*").eq("name", newName.trim()).eq("restaurant_id", currentRestoId).single();
     if (existing) {
       if (existing.active) { addToast("Ce fournisseur existe déjà", "error"); return; }
-      // Réactiver le fournisseur désactivé
       const { data: reactivated } = await supabase.from("suppliers").update({ active: true, category: newCat }).eq("id", existing.id).select().single();
       setSuppliers(prev => [...prev, reactivated]);
       setNewName(""); addToast("Fournisseur réactivé : " + newName, "success");
@@ -1055,14 +1094,12 @@ const SuppliersPage = ({ suppliers, setSuppliers, data, addToast, isAdmin, curre
     setSuppliers(prev => [...prev, s]);
     setNewName(""); addToast("Fournisseur ajouté : " + newName, "success");
   };
-
   const removeSupplier = async (id) => {
     if (!window.confirm("Supprimer ce fournisseur ?")) return;
     await supabase.from("suppliers").update({ active: false }).eq("id", id);
     setSuppliers(prev => prev.filter(s => s.id !== id));
     addToast("Fournisseur supprimé", "info");
   };
-
   const filteredData = useMemo(() => {
     const now = new Date();
     let filtered = data;
@@ -1081,7 +1118,6 @@ const SuppliersPage = ({ suppliers, setSuppliers, data, addToast, isAdmin, curre
     }
     return filtered;
   }, [data, period, customFrom, customTo]);
-
   const supplierStats = useMemo(() => {
     const stats = {};
     filteredData.forEach(d => d.invoices.forEach(i => {
@@ -1092,9 +1128,7 @@ const SuppliersPage = ({ suppliers, setSuppliers, data, addToast, isAdmin, curre
     }));
     return Object.entries(stats).sort((a, b) => b[1].total - a[1].total);
   }, [filteredData]);
-
   const filteredStats = filterSupplier === "all" ? supplierStats : supplierStats.filter(([name]) => name === filterSupplier);
-
   const exportSupplierCSV = () => {
     const BOM = "\uFEFF";
     const headers = ["Fournisseur","Date","Montant HT","Catégorie"];
@@ -1109,7 +1143,6 @@ const SuppliersPage = ({ suppliers, setSuppliers, data, addToast, isAdmin, curre
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a"); a.href = url; a.download = "fournisseurs_export.csv"; a.click(); URL.revokeObjectURL(url);
   };
-
   const exportSupplierPDF = () => {
     const fc = (v) => new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(v);
     const periodLabel = period === "week" ? "Semaine en cours" : period === "month" ? "Mois en cours" : period === "quarter" ? "Trimestre en cours" : "Période personnalisée";
@@ -1128,13 +1161,11 @@ const SuppliersPage = ({ suppliers, setSuppliers, data, addToast, isAdmin, curre
     w.document.close();
     setTimeout(() => w.print(), 300);
   };
-
   const periodBtnStyle = (p) => ({
     padding: "6px 14px", borderRadius: 6, border: period === p ? "none" : "1px solid var(--border)",
     background: period === p ? "var(--accent)" : "var(--bg-card)", color: period === p ? "#fff" : "var(--text-secondary)",
     fontSize: 13, fontWeight: 500, cursor: "pointer"
   });
-
   return (
     <div className="content-area">
       {isAdmin && (
@@ -1193,20 +1224,16 @@ const SuppliersPage = ({ suppliers, setSuppliers, data, addToast, isAdmin, curre
     </div>
   );
 };
-
-
 const InventoryPage = ({ data, currentRestoId, addToast }) => {
   const [inventories, setInventories] = useState([]);
   const [newDate, setNewDate] = useState('');
   const [newValue, setNewValue] = useState('');
   const [newNotes, setNewNotes] = useState('');
   const [loading, setLoading] = useState(true);
-
   useEffect(() => {
     supabase.from('inventory').select('*').eq('restaurant_id', currentRestoId).order('date', { ascending: false })
       .then(({ data: rows }) => { if (rows) setInventories(rows); setLoading(false); });
   }, [currentRestoId]);
-
   const addInventory = async () => {
     if (!newDate || !newValue) { addToast('Veuillez remplir la date et la valeur', 'error'); return; }
     const entry = { restaurant_id: currentRestoId, date: newDate, valeur_stock: parseFloat(newValue), notes: newNotes || null };
@@ -1216,15 +1243,12 @@ const InventoryPage = ({ data, currentRestoId, addToast }) => {
     setNewDate(''); setNewValue(''); setNewNotes('');
     addToast('Inventaire enregistré ✓', 'success');
   };
-
   const removeInventory = async (id) => {
     if (!window.confirm('Supprimer cet inventaire ?')) return;
     await supabase.from('inventory').delete().eq('id', id);
     setInventories(prev => prev.filter(i => i.id !== id));
     addToast('Inventaire supprimé', 'info');
   };
-
-  // Calcul ratio corrigé par mois
   const monthlyStats = useMemo(() => {
     const months = {};
     data.forEach(d => {
@@ -1234,29 +1258,22 @@ const InventoryPage = ({ data, currentRestoId, addToast }) => {
       months[m].ca_ht += d.ca_ht || Math.round(d.ca / 1.1);
       months[m].achats += d.invoices.reduce((s, i) => s + i.montant, 0);
     });
-
     return Object.entries(months).sort((a,b) => b[0].localeCompare(a[0])).map(([month, stats]) => {
       const [y, mo] = month.split('-');
       const label = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'][parseInt(mo)-1] + ' ' + y;
-
-      // Trouver inventaire fin de ce mois et fin du mois précédent
       const invFin = inventories.find(i => i.date.startsWith(month));
       const prevMonth = new Date(parseInt(y), parseInt(mo)-2, 1);
       const prevKey = prevMonth.getFullYear() + '-' + String(prevMonth.getMonth()+1).padStart(2,'0');
       const invDebut = inventories.find(i => i.date.startsWith(prevKey));
-
       const ratioBrut = stats.ca_ht > 0 ? (stats.achats / stats.ca_ht) * 100 : 0;
-
       let ratioCorrige = null;
       if (invFin && invDebut) {
         const consommation = stats.achats + invDebut.valeur_stock - invFin.valeur_stock;
         ratioCorrige = stats.ca_ht > 0 ? (consommation / stats.ca_ht) * 100 : 0;
       }
-
       return { month, label, ...stats, invFin, invDebut, ratioBrut, ratioCorrige };
     });
   }, [data, inventories]);
-
   return (
     <div className="content-area">
       <div className="grid-2" style={{ alignItems: 'start' }}>
@@ -1268,7 +1285,6 @@ const InventoryPage = ({ data, currentRestoId, addToast }) => {
             <div className="form-group"><label className="form-label">Notes (optionnel)</label><input className="form-input" type="text" value={newNotes} onChange={e => setNewNotes(e.target.value)} placeholder="Inventaire fin mars..." /></div>
             <button className="btn btn-primary" onClick={addInventory} style={{ width: '100%', justifyContent: 'center' }}><Icon name="check" size={16} color="var(--bg-primary)" /> Enregistrer l'inventaire</button>
           </div>
-
           <div className="card">
             <div className="card-header"><div className="card-title">Historique des inventaires</div><div className="card-subtitle">{inventories.length} entrée(s)</div></div>
             {loading ? <div style={{ textAlign: 'center', padding: 24, color: 'var(--text-muted)' }}>Chargement...</div> :
@@ -1289,7 +1305,6 @@ const InventoryPage = ({ data, currentRestoId, addToast }) => {
             )) : <div style={{ textAlign: 'center', padding: 32, color: 'var(--text-muted)' }}>Aucun inventaire saisi</div>}
           </div>
         </div>
-
         <div className="card">
           <div className="card-header"><div><div className="card-title">Ratio corrigé par mois</div><div className="card-subtitle">Avec variation de stock</div></div></div>
           {monthlyStats.map(m => (
@@ -1326,42 +1341,30 @@ const InventoryPage = ({ data, currentRestoId, addToast }) => {
     </div>
   );
 };
-
-
 const MultisitesPage = ({ restaurants, restoData, allObjectives }) => {
   const COMBO_RESTOS = {
     "r1772490949804": "r1772490949804",
     "r1772494496631": "r1772494496631",
     "r1775159807169": "r1775159807169",
   };
-
   const [liveData, setLiveData] = useState({});
   const [loading, setLoading] = useState(true);
   const [lastRefresh, setLastRefresh] = useState(null);
-
   const fetchAll = useCallback(async () => {
     setLoading(true);
     const todayStr = today();
     const now = new Date();
-
     const results = {};
-
     await Promise.all(restaurants.map(async (resto) => {
       const data = restoData[resto.id] || [];
       const obj = allObjectives[resto.id] || {};
-
-      // Objectif du jour
       const dow = getDow(todayStr);
       const objectif = obj.dateOverrides?.[todayStr] ?? obj.objectives?.[dow] ?? 0;
-
-      // CA du jour depuis Zelty
       let zelty = null;
       try {
         const r = await fetch("/api/zelty-ca?date=" + todayStr + "&resto_id=" + resto.id);
         if (r.ok) { const z = await r.json(); if (z.ca_ttc > 0) zelty = z; }
       } catch(e) {}
-
-      // Ratio matières mois en cours
       const monthData = data.filter(d => {
         const dt = new Date(d.date + "T00:00:00");
         return dt.getFullYear() === now.getFullYear() && dt.getMonth() === now.getMonth();
@@ -1369,8 +1372,6 @@ const MultisitesPage = ({ restaurants, restoData, allObjectives }) => {
       const caPHt = monthData.reduce((s, d) => s + (d.ca_ht || Math.round(d.ca / 1.1)), 0);
       const achatsP = monthData.reduce((s, d) => s + d.invoices.reduce((a, i) => a + i.montant, 0), 0);
       const ratioP = caPHt > 0 ? (achatsP / caPHt) * 100 : null;
-
-      // Production horaire depuis Combo (période mois)
       let comboH = null;
       if (COMBO_RESTOS[resto.id] && monthData.length > 0) {
         try {
@@ -1380,26 +1381,18 @@ const MultisitesPage = ({ restaurants, restoData, allObjectives }) => {
           if (r.ok) { const c = await r.json(); if (c.total_hours > 0) comboH = c; }
         } catch(e) {}
       }
-
       const prodHoraire = comboH && caPHt > 0 ? caPHt / comboH.total_hours : null;
-
-      // CA & écart
       const caTtc = zelty ? zelty.ca_ttc : (data.find(d => d.date === todayStr)?.ca || 0);
       const caHt = zelty ? zelty.ca_ht : (data.find(d => d.date === todayStr)?.ca_ht || 0);
       const ecart = caTtc - objectif;
-
       results[resto.id] = { caTtc, caHt, objectif, ecart, ratioP, caPHt, achatsP, prodHoraire, comboH, zelty, monthDays: monthData.length };
     }));
-
     setLiveData(results);
     setLastRefresh(new Date());
     setLoading(false);
   }, [restaurants, restoData, allObjectives]);
-
   useEffect(() => { fetchAll(); }, [fetchAll]);
-
   const formatTime = (d) => d ? d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }) : "";
-
   return (
     <div className="content-area">
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
@@ -1411,13 +1404,11 @@ const MultisitesPage = ({ restaurants, restoData, allObjectives }) => {
           {loading ? "⏳ Chargement..." : "↻ Actualiser"}
         </button>
       </div>
-
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))", gap: 20 }}>
         {restaurants.map(resto => {
           const d = liveData[resto.id];
           return (
             <div key={resto.id} className="card" style={{ borderTop: "4px solid " + resto.color, padding: 0, overflow: "hidden" }}>
-              {/* Header */}
               <div style={{ padding: "16px 20px", background: "var(--bg-input)", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 10 }}>
                 <div style={{ width: 12, height: 12, borderRadius: 6, background: resto.color }} />
                 <div style={{ flex: 1 }}>
@@ -1426,13 +1417,10 @@ const MultisitesPage = ({ restaurants, restoData, allObjectives }) => {
                 </div>
                 {d?.zelty && <span style={{ fontSize: 9, background: "var(--accent)", color: "#fff", padding: "2px 7px", borderRadius: 4, fontWeight: 600 }}>LIVE</span>}
               </div>
-
-              {/* KPIs */}
               {!d ? (
                 <div style={{ padding: 32, textAlign: "center", color: "var(--text-muted)" }}>Chargement...</div>
               ) : (
                 <div style={{ padding: 16 }}>
-                  {/* Ligne 1 : CA + Écart */}
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
                     <div style={{ padding: "12px 14px", background: "var(--accent-bg)", borderRadius: "var(--radius-sm)", border: "1px solid rgba(74,222,128,0.15)" }}>
                       <div style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 4 }}>CA du jour</div>
@@ -1445,8 +1433,6 @@ const MultisitesPage = ({ restaurants, restoData, allObjectives }) => {
                       <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>Obj : {formatCurrency(d.objectif)}</div>
                     </div>
                   </div>
-
-                  {/* Ligne 2 : Ratio + Prod horaire */}
                   <div style={{ display: "grid", gridTemplateColumns: d.prodHoraire !== null ? "1fr 1fr" : "1fr", gap: 10 }}>
                     <div style={{ padding: "12px 14px", background: d.ratioP !== null && d.ratioP > RATIO_ALERT_THRESHOLD ? "var(--red-bg)" : "var(--gold-bg)", borderRadius: "var(--radius-sm)", border: "1px solid " + (d.ratioP !== null && d.ratioP > RATIO_ALERT_THRESHOLD ? "rgba(248,113,113,0.2)" : "rgba(251,191,36,0.15)") }}>
                       <div style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 4 }}>Ratio matières mois</div>
@@ -1474,7 +1460,6 @@ const MultisitesPage = ({ restaurants, restoData, allObjectives }) => {
     </div>
   );
 };
-
 export default function App() {
   const [user, setUser] = useState(() => {
     try {
@@ -1498,9 +1483,7 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [toasts, setToasts] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
-
   const addToast = useCallback((message, type = "info") => { const id = Date.now(); setToasts((t) => [...t, { id, message, type }]); setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 4000); }, []);
-
   // ---- Fetch all data from Supabase ----
   const fetchAll = useCallback(async () => {
     const { data: restos } = await supabase.from("restaurants").select("*").order("created_at");
@@ -1510,7 +1493,8 @@ export default function App() {
     const { data: supps } = await supabase.from("suppliers").select("*").eq("active", true).order("name");
     const rList = (restos || []).map(r => ({
       id: r.id, name: r.name, address: r.address || "", color: r.color || "#4ADE80",
-      objectives: r.objectives || DEFAULT_OBJ, dateOverrides: r.date_overrides || {}
+      objectives: r.objectives || DEFAULT_OBJ, dateOverrides: r.date_overrides || {},
+      annualObjective: Number(r.annual_objective) || 0
     }));
     const uList = (users || []).map(u => ({
       id: u.id, email: u.email, password: u.password, name: u.name, role: u.role, restaurantId: u.restaurant_id
@@ -1534,7 +1518,6 @@ export default function App() {
     setDbReady(true);
     return rList;
   }, []);
-
   // ---- Initial load after login ----
   useEffect(() => {
     if (!user) { setDbReady(false); return; }
@@ -1543,30 +1526,24 @@ export default function App() {
       else setCurrentRestoId(user.restaurantId);
     });
   }, [user, fetchAll]);
-
   const isAdmin = user?.role === "admin";
   const currentResto = restaurants.find(r => r.id === currentRestoId);
   const currentData = restoData[currentRestoId] || [];
-
   useEffect(() => { document.documentElement.setAttribute("data-theme", theme); try { localStorage.setItem("rp_theme", theme); } catch(e) {} }, [theme]);
   const toggleTheme = () => setTheme(t => t === "dark" ? "light" : "dark");
   const handleLogout = () => { try { localStorage.removeItem("rp_session"); localStorage.removeItem("rp_session_expiry"); } catch(e) {} setUser(null); setCurrentRestoId(null); setPage("dashboard"); };
-
   // ---- Save day data to Supabase ----
   const setCurrentData = async (newData) => {
     if (!currentRestoId) return;
     setRestoData(prev => ({ ...prev, [currentRestoId]: newData }));
-    // Find what changed (most recent save = last modified entry)
     const oldData = restoData[currentRestoId] || [];
     for (const entry of newData) {
       const old = oldData.find(d => d.date === entry.date);
       if (!old || old.ca !== entry.ca || old.ca_ht !== entry.ca_ht || old.objectif !== entry.objectif || JSON.stringify(old.invoices) !== JSON.stringify(entry.invoices)) {
-        // Upsert daily_data
         await supabase.from("daily_data").upsert({
           restaurant_id: currentRestoId, date: entry.date,
           ca: entry.ca, ca_ht: entry.ca_ht, objectif: entry.objectif, updated_at: new Date().toISOString()
         }, { onConflict: "restaurant_id,date" });
-        // Replace invoices for this day
         await supabase.from("invoices").delete().eq("restaurant_id", currentRestoId).eq("date", entry.date);
         if (entry.invoices.length > 0) {
           await supabase.from("invoices").insert(
@@ -1576,21 +1553,21 @@ export default function App() {
       }
     }
   };
-
   // ---- Restaurant CRUD ----
   const handleUpdateObjectives = async (restoId, updates) => {
     setRestaurants(rs => rs.map(r => r.id === restoId ? { ...r, ...updates } : r));
     const upd = {};
     if (updates.objectives) upd.objectives = updates.objectives;
     if (updates.dateOverrides !== undefined) upd.date_overrides = updates.dateOverrides;
+    if (updates.annualObjective !== undefined) upd.annual_objective = updates.annualObjective;
     await supabase.from("restaurants").update(upd).eq("id", restoId);
   };
   const handleAddResto = async (nr) => {
     const id = "r" + Date.now();
-    const newR = { id, name: nr.name, address: nr.address, color: nr.color, objectives: { ...DEFAULT_OBJ }, dateOverrides: {} };
+    const newR = { id, name: nr.name, address: nr.address, color: nr.color, objectives: { ...DEFAULT_OBJ }, dateOverrides: {}, annualObjective: 0 };
     setRestaurants(rs => [...rs, newR]);
     setRestoData(prev => ({ ...prev, [id]: [] }));
-    await supabase.from("restaurants").insert({ id, name: nr.name, address: nr.address || "", color: nr.color, objectives: DEFAULT_OBJ, date_overrides: {} });
+    await supabase.from("restaurants").insert({ id, name: nr.name, address: nr.address || "", color: nr.color, objectives: DEFAULT_OBJ, date_overrides: {}, annual_objective: 0 });
   };
   const handleDeleteResto = async (id) => {
     if (restaurants.length <= 1) { addToast("Impossible : il faut au moins 1 restaurant", "error"); return; }
@@ -1605,7 +1582,6 @@ export default function App() {
     await supabase.from("restaurants").delete().eq("id", id);
     addToast("Restaurant supprimé", "info");
   };
-
   // ---- User CRUD ----
   const handleAddUser = async (nu) => {
     if (allUsers.find(u => u.email === nu.email)) { addToast("Cet email existe déjà", "error"); return; }
@@ -1626,7 +1602,6 @@ export default function App() {
     setAllUsers(us => us.filter(u => u.email !== email));
     await supabase.from("app_users").delete().eq("email", email);
   };
-
   // ---- RAZ February ----
   const resetFebruaryData = async () => {
     if (!window.confirm("⚠️ Remettre à zéro les CA et supprimer toutes les factures de février ?\\n\\nCette action est irréversible.")) return;
@@ -1635,7 +1610,6 @@ export default function App() {
     await fetchAll();
     addToast("Données de février remises à zéro", "info");
   };
-
   const navItems = [
     { id: "dashboard", label: "Tableau de bord", icon: "dashboard" },
     { id: "input", label: "Saisie du jour", icon: "input" },
@@ -1663,7 +1637,7 @@ export default function App() {
         {currentRestoId === "multisites" ? (
           <MultisitesPage restaurants={restaurants} restoData={restoData} allObjectives={Object.fromEntries(restaurants.map(r => [r.id, { objectives: r.objectives, dateOverrides: r.dateOverrides }]))} />
         ) : (<>
-        {page === "dashboard" && <DashboardPage data={currentData} restoName={currentResto?.name || "RestoPilot"} restoObjectives={currentResto?.objectives} restoOverrides={currentResto?.dateOverrides} currentRestoId={currentRestoId} />}
+        {page === "dashboard" && <DashboardPage data={currentData} restoName={currentResto?.name || "RestoPilot"} restoObjectives={currentResto?.objectives} restoOverrides={currentResto?.dateOverrides} currentRestoId={currentRestoId} annualObjective={currentResto?.annualObjective || 0} />}
         {page === "input" && <InputPage data={currentData} setData={setCurrentData} addToast={addToast} isAdmin={isAdmin} restoObjectives={currentResto?.objectives} restoOverrides={currentResto?.dateOverrides} suppliers={suppliers.filter(s => s.restaurant_id === currentRestoId)} currentRestoId={currentRestoId} />}
         {page === "history" && <HistoryPage data={currentData} />}
         {page === "alerts" && <AlertsPage data={currentData} addToast={addToast} currentRestoId={currentRestoId} />}
