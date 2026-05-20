@@ -110,9 +110,9 @@ async function saveCAToSupabase(date, ca_ttc, ca_ht, restoId, restoObjectif) {
 
 async function getComboHours(date) {
   try {
-    const url = `https://partner.combohr.com/api/v1/plannings?start_date=${date}&location_id=ee5c8263-71fc-4f86-b1e6-bc4c2b4ce216`;
+    const url = `https://partner.combohr.com/api/v1/plannings?start_date=${date}&location_id=0ce6c79e-c509-4dd3-9cfa-82776d7c8ea7`;
     const resp = await fetch(url, {
-      headers: { Authorization: `Bearer FSowgEZYNvwOM0t6mchemjYtMc-9YxatfcfRrdEZetk`, "Content-Type": "application/json" },
+      headers: { Authorization: `Bearer MHhhnPsJhTqr2rNwKVWBxdzJvq-XK-8eQuSAqkimtPA`, "Content-Type": "application/json" },
     });
     if (!resp.ok) return null;
     const shifts = await resp.json();
@@ -263,6 +263,6 @@ export default async function handler(req, res) {
       return res.status(200).json({ success: false, error: emailResult?.message || "Erreur Resend" });
     }
   } catch (err) {
-    return res.status(500).json({ success: false, error: err.message });
+    return res.status(200).json({ success: false, error: err.message });
   }
 }
