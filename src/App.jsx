@@ -164,7 +164,7 @@ const CSS = `
   .custom-tooltip .label { font-size: 11px; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
   .custom-tooltip .item { font-size: 13px; margin-bottom: 3px; }
   @media (max-width: 1024px) { .kpi-grid { grid-template-columns: repeat(2, 1fr); } .grid-2 { grid-template-columns: 1fr; } }
-  @media (max-width: 768px) { .sidebar { transform: translateX(-100%); } .sidebar.open { transform: translateX(0); } .main-content { margin-left: 0; } .burger { display: block; } .content-area { padding: 20px 16px; } .top-bar { padding: 12px 16px; } .kpi-grid { grid-template-columns: 1fr 1fr; gap: 10px; } .kpi-card { padding: 14px; } .kpi-value { font-size: 22px; } .form-row { grid-template-columns: 1fr; } .card { padding: 16px; } .sidebar-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 99; } }
+  @media (max-width: 768px) { .sidebar { transform: translateX(-100%); } .sidebar.open { transform: translateX(0); } .main-content { margin-left: 0; } .burger { display: block; } .content-area { padding: 20px 16px; } .top-bar { padding: 12px 16px; } .kpi-grid { grid-template-columns: 1fr 1fr; gap: 10px; } .kpi-card { padding: 14px; } .kpi-value { font-size: 22px; } .form-row { grid-template-columns: 1fr; } .card { padding: 16px; } .sidebar-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 99; } .annual-obj-grid { grid-template-columns: 1fr !important; gap: 18px !important; } .annual-obj-donut-wrap { width: 220px !important; height: 220px !important; } .annual-obj-pct { font-size: 42px !important; } .annual-obj-total { font-size: 18px !important; } }
   @media (max-width: 480px) { .kpi-grid { grid-template-columns: 1fr; } }
   ::-webkit-scrollbar { width: 6px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
   .recharts-text { fill: var(--text-muted) !important; font-size: 11px !important; }
@@ -529,16 +529,16 @@ const AnnualObjectiveCard = ({ data, annualObjective, restoName }) => {
         </div>
       </div>
       <div className="annual-obj-grid" style={{ display: "grid", gridTemplateColumns: "320px minmax(0, 1fr)", gap: 32, alignItems: "center" }}>
-        <div style={{ position: "relative", width: 320, height: 320, margin: "0 auto" }}>
+        <div className="annual-obj-donut-wrap" style={{ position: "relative", width: 320, height: 320, margin: "0 auto" }}>
           <svg viewBox="0 0 100 100" style={{ width: "100%", height: "100%", transform: "rotate(-90deg)", display: "block" }}>
             <circle cx="50" cy="50" r="44" fill="none" stroke="var(--border)" strokeWidth="8" pathLength="100" />
             <circle cx="50" cy="50" r="44" fill="none" stroke="var(--accent)" strokeWidth="8" pathLength="100" strokeDasharray={progressArc + " 100"} strokeLinecap="round" />
           </svg>
           <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", textAlign: "center", width: "70%" }}>
-            <div style={{ fontSize: 56, fontWeight: 700, color: "var(--accent)", lineHeight: 1, fontFamily: "Inter, sans-serif" }}>{progressActual.toFixed(1)}%</div>
+            <div className="annual-obj-pct" style={{ fontSize: 56, fontWeight: 700, color: "var(--accent)", lineHeight: 1, fontFamily: "Inter, sans-serif" }}>{progressActual.toFixed(1)}%</div>
             <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 6, textTransform: "uppercase", letterSpacing: "0.5px" }}>d'atteinte</div>
             <div style={{ marginTop: 18, paddingTop: 16, borderTop: "1px solid var(--border)" }}>
-              <div style={{ fontSize: 22, fontWeight: 700, color: "var(--accent)", lineHeight: 1, fontFamily: "Inter, sans-serif" }}>{formatCurrency(totalYTD)}</div>
+              <div className="annual-obj-total" style={{ fontSize: 22, fontWeight: 700, color: "var(--accent)", lineHeight: 1, fontFamily: "Inter, sans-serif" }}>{formatCurrency(totalYTD)}</div>
               <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 4 }}>sur {formatCurrency(annualObjective)}</div>
             </div>
           </div>
